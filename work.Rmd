@@ -1,30 +1,113 @@
 ---
-title: "Untitled"
+title: "Project 3"
 author: "Vivi"
 date: "2023-11-02"
-output: github_document
+output: 
+  github_document:
+    toc: true
+    toc_depth: 2
+    df_print: tibble
+params:
+    Education: "6"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE)
 ```
 
-## R Markdown
+# Introduction
 
-test 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# Data
+First of all, We will call the required packages and read in the "diabetes_binary_health_indicators_BRFSS2015.csv" file. According to the [data dictionary](https://www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset/?select=diabetes_binary_health_indicators_BRFSS2015.csv), there are 22 columns and most of them are categorical variables, we will convert them to factors and replace the original variables in the code below using a `as.factor` function. Lastly, we will use a `filter` function and subset the "diabetes" data set corresponding to the `params$Education` value in YAML header for R markdown automation purpose.
 
-```{r cars}
-summary(cars)
+```{r read}
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(GGally)
+
+#use `as.factor` function to replace the original variables.
+diabetes <- read_csv(file = "diabetes_binary_health_indicators_BRFSS2015.csv")
+diabetes$Diabetes_binary <- as.factor(diabetes$Diabetes_binary)
+diabetes$HighBP <- as.factor(diabetes$HighBP)
+diabetes$HighChol <- as.factor(diabetes$HighChol)
+diabetes$CholCheck <- as.factor(diabetes$CholCheck)
+diabetes$Smoker <- as.factor(diabetes$Smoker)
+diabetes$Stroke <- as.factor(diabetes$Stroke)
+diabetes$HeartDiseaseorAttack <- as.factor(diabetes$HeartDiseaseorAttack)
+diabetes$PhysActivity <- as.factor(diabetes$PhysActivity)
+diabetes$Fruits <- as.factor(diabetes$Fruits)
+diabetes$Veggies <- as.factor(diabetes$Veggies)
+diabetes$HvyAlcoholConsump <- as.factor(diabetes$HvyAlcoholConsump)
+diabetes$AnyHealthcare <- as.factor(diabetes$AnyHealthcare)
+diabetes$NoDocbcCost <- as.factor(diabetes$NoDocbcCost)
+diabetes$GenHlth <- as.factor(diabetes$GenHlth)
+diabetes$DiffWalk <- as.factor(diabetes$DiffWalk)
+diabetes$Sex <- as.factor(diabetes$Sex)
+diabetes$Age <- as.factor(diabetes$Age)
+diabetes$Education  <- as.factor(diabetes$Education)
+diabetes$Income <- as.factor(diabetes$Income)
+diabetes              
+table(diabetes$Education)
+
+# subset data set based on parameter in YAML header
+
+#diabetes_sub <- diabetes %>% 
+
+#                   filter(Education == params$Education)
+
+diabetes_sub <- diabetes %>% 
+
+                   filter(Education == "6")
+
+diabetes_sub
 ```
 
-## Including Plots
+# Summarizations
+Now we are ready to perform an exploratory data analysis, and give some Summarizations about the center, spread and distribution of numeric variables in the form of tables and plots. Also provide contingency tables and bar plots for categorical variables.
 
-You can also embed plots, for example:
+## The response: "Diabetes_binary"
+Since "Diabetes_binary" is a binary variable, we will create a one way contingency table and see the count of subjects with and without diabetes in this education group, also visualize the result in a bar chart.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+```{r one}
+table(diabetes_sub$Diabetes_binary)
+
+g <- ggplot(data = diabetes_sub, aes(x = Diabetes_binary, fill = Diabetes_binary))
+g + geom_bar(alpha = 0.6) +
+  scale_x_discrete(breaks=c("0","1"),
+        labels=c("No", "Yes")) +
+  scale_fill_discrete(name = "Diabetes Diagnosis", labels = c("No", "Yes")) +
+  labs(x = "Diabetes Diagnosis", y = "Subject count", title = "Bar plot of subject with diabetes and subject withou diabetes count") 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Contigency table and Chi-square
+Now we want to investigate the relationship between having diabetes vs all the categorical variables. we will create a function which generates a contingency table, calculates the row percentage for each level of the corresponding categorical variable in both diagnosis groups, and gives the chi-square result based on the contingency table. We need to pay attention to the categorical variable with a significant chi-square result (p value smaller than 0.05), that means this categorical variable may have certain relationship with the diabetes diagnosis.
+
+``` {r chi}
+chisq <- function (x) {
+  a <- table(diabetes_sub$Diabetes_binary, x)
+  c <- cbind(a, a/rowSums(a))
+  b <- chisq.test(a, correct=FALSE)
+  return(list(a, c, b))
+}
+
+chisq(diabetes_sub$HighBP)
+chisq(diabetes_sub$HighChol)
+chisq(diabetes_sub$CholCheck)
+chisq(diabetes_sub$Smoker)
+chisq(diabetes_sub$Stroke)
+chisq(diabetes_sub$HeartDiseaseorAttack)
+chisq(diabetes_sub$PhysActivity)
+chisq(diabetes_sub$Fruits)
+chisq(diabetes_sub$Veggies)
+chisq(diabetes_sub$HvyAlcoholConsump)
+chisq(diabetes_sub$AnyHealthcare)
+chisq(diabetes_sub$NoDocbcCost)
+chisq(diabetes_sub$GenHlth)
+chisq(diabetes_sub$DiffWalk)
+chisq(diabetes_sub$Sex)
+chisq(diabetes_sub$Income)
+
+```
