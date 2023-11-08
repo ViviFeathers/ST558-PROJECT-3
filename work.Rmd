@@ -26,6 +26,7 @@ library(tidyverse)
 library(ggplot2)
 library(caret)
 library(GGally)
+library(devtools)
 
 #use `as.factor` function to replace the original variables.
 diabetes <- read_csv(file = "diabetes_binary_health_indicators_BRFSS2015.csv")
@@ -68,8 +69,7 @@ diabetes_sub
 Now we are ready to perform an exploratory data analysis, and give some Summarizations about the center, spread and distribution of numeric variables in the form of tables and plots. Also provide contingency tables and bar plots for categorical variables.
 
 ## The response: "Diabetes_binary"
-Since "Diabetes_binary" is a binary variable, we will create a one way contingency table and see the count of subjects with and without diabetes in this education group, also visualize the result in a bar chart.
-
+Since "Diabetes_binary" is a binary variable, we will create a one way contingency table with `table` function to see the count of subjects with and without diabetes in this education group. Also visualize the result in a bar chart using `ggplot` + `geom_bar` function. For label specification on x axis, x ticks, y axis and legend, we will use the `scale_x_discrete`, the `scale_fill_discrete` and the `labs` functions. 
 
 ```{r one}
 table(diabetes_sub$Diabetes_binary)
@@ -82,8 +82,10 @@ g + geom_bar(alpha = 0.6) +
   labs(x = "Diabetes Diagnosis", y = "Subject count", title = "Bar plot of subject with diabetes and subject withou diabetes count") 
 ```
 
+From this bar chart, we can see which diagnosis group has more subjects in this education level.
+
 ## Contigency table and Chi-square
-Now we want to investigate the relationship between having diabetes vs all the categorical variables. we will create a function which generates a contingency table, calculates the row percentage for each level of the corresponding categorical variable in both diagnosis groups, and gives the chi-square result based on the contingency table. We need to pay attention to the categorical variable with a significant chi-square result (p value smaller than 0.05), that means this categorical variable may have certain relationship with the diabetes diagnosis.
+Now we want to investigate the relationship between having diabetes vs all the categorical variables. we will create a function which generates a contingency table, calculates the row percentage for each level of the corresponding categorical variable in both diagnosis groups, and gives the chi-square result based on the contingency table. 
 
 ``` {r chi}
 chisq <- function (x) {
@@ -111,3 +113,64 @@ chisq(diabetes_sub$Sex)
 chisq(diabetes_sub$Income)
 
 ```
+
+We need to pay attention to the categorical variable with a significant chi-square result (p value smaller than 0.05), that means this categorical variable may have certain relationship with the diabetes diagnosis.
+
+## "HighBP"
+As we all know, high blood pressure and diabetes are related, we want to create a bar chart and visualize the high blood pressure subjects' count and ratio in each diagnosis group. Here we will again, use the `gglot` function and the `geom_bar` function to create the plot. Like last bar chart, we also will set labels for x axis, x ticks, y axis and legend with the `scale_x_discrete`, the `scale_fill_discrete` and the`labs` functions.
+
+```{r bar1}
+h <- ggplot(data = diabetes_sub, aes(x = Diabetes_binary, fill = HighBP))
+h + geom_bar(position = "dodge", alpha = 0.6) +
+  scale_x_discrete(breaks=c("0","1"),
+       labels=c("No", "Yes")) +
+  scale_fill_discrete(name = "High Blood Pressure", labels = c("No", "Yes")) +
+  labs(x = "Diabetes Diagnosis", y = "Subject count", title = "Bar plot of high blood pressure subject count in diabetes and non-diabetes group")
+```
+
+In the bar chart above, we need to focus on the count and ratio of subjects with high blood pressure vs subjects without in both diabetes and non-diabetes group, and verify if the ratio of high blood pressure subjects in the diabetes group is higher than the non-diabetes group's as we assumed.
+
+## "HighChol"
+Another health condition that associates with diabetes is high cholesterol, we also want to create a bar chart and compare the high cholesterol subjects' count and ratio in each diagnosis group, using all the functions we used for previous bar plots.
+
+```{r bar2}
+h <- ggplot(data = diabetes_sub, aes(x = Diabetes_binary, fill = HighChol))
+h + geom_bar(position = "dodge", alpha = 0.6) +
+  scale_x_discrete(breaks=c("0","1"),
+       labels=c("No", "Yes")) +
+  scale_fill_discrete(name = "High Cholesterol", labels = c("No", "Yes")) +
+  labs(x = "Diabetes Diagnosis", y = "Subject count", title = "Bar plot of high cholesterol subject count in diabetes and non-diabetes group")
+```
+
+In the bar chart above, we also need to look at the count and ratio of subjects with high cholesterol vs subjects without in both diabetes and non-diabetes group, and verify if the ratio of high cholesterol subjects in the diabetes group is higher than the non-diabetes group's as we expected.
+
+## "BMI"
+The association of high BMI and diabetes are proved in many scientific studies, in order to verify if this association also exists in our data, we are looking into the distribution of BMI in both diagnosis group by creating a summary table using `group_by` and `summarise` function, as well as generating a kernel density plot with `ggplot` and `geom_density` function. Additionally, we want to conduct a two sample t-test with `t.test` function and investigate if the means in each diagnosis group are different from each other.
+
+```{r bmi}
+diabetes_sub %>%
+  group_by(Diabetes_binary) %>%
+  summarise(Mean = mean(BMI),  Standard_Deviation = sd(BMI), 
+            Variance = var(BMI), Median = median(BMI), 
+            q1 = quantile(BMI, probs = 0.25),
+            q3 = quantile(BMI, probs = 0.75))
+
+i <- ggplot(data = diabetes_sub, aes(x = BMI, fill = Diabetes_binary)) 
+i + geom_density(adjust = 1, color="#e9ecef", alpha=0.5, position = 'dodge') +
+  scale_fill_manual(values=c("#69b3a2", "#404080")) +
+  labs(x = "BMI", title = "Kernal density plot of BMI distribution across diagnosis group") 
+
+t.test(BMI ~ Diabetes_binary, data = diabetes_sub, alternative = "two.sided", var.equal = FALSE)
+```
+
+The summary table gives us the center (mean and median) and spread (standard_deviation, variance, q1 and q3) of BMI in each diagnosis group. The density plot shows the distribution of BMI in each diagnosis group, we can estimate the means and standard deviations, also visualize their differences. Lastly, the two sample t-test returns the 95% confidence interval of mean difference, and the t statistic, degree of freedom and p-value as t-test result, we need to see if the p-value is smaller than 0.05 to decide whether we will reject the null hypothesis (true difference in means between two diagnosis is equal to 0).
+
+## Correlation among numeric variables
+Before fitting any model, we also want to test the correlation among numeric variables, in case there is collinearity that diminishes our ability to determine which variables are responsible for change in the response variable. For this reason, we should determine correlations between all variables and consider removing ones that are problematic. We can do this by creating a correlation plot with `ggpairs()` from the `GGally` package. 
+
+```{r graphics, fig.width = 6, fig.height = 6}
+x <- diabetes_sub[, c(5, 16, 17)] 
+GGally::ggpairs(x)
+```
+
+Let's look for the pairs that have correlation coefficient higher than 0.4. If we do find such pairs, we need to refer to the relationship between each variable and the response, as well as some background knowledge (may do a literature review), in order to decide which variable will be include into the models.
