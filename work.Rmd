@@ -27,9 +27,16 @@ library(ggplot2)
 library(caret)
 library(GGally)
 library(devtools)
+library(leaps)
+library(glmnet)
 
-#use `as.factor` function to replace the original variables.
+
 diabetes <- read_csv(file = "diabetes_binary_health_indicators_BRFSS2015.csv")
+
+# for log-loss purpose, create a new variable and assign value as "YES" for the records have Diabetes_binary = 1 and 'NO' otherwise.
+diabetes <- diabetes %>%
+            mutate(diabetes_dx = as.factor(if_else(Diabetes_binary == 1, 'Yes', 'No')))
+#use `as.factor` function to replace the original variables.
 diabetes$Diabetes_binary <- as.factor(diabetes$Diabetes_binary)
 diabetes$HighBP <- as.factor(diabetes$HighBP)
 diabetes$HighChol <- as.factor(diabetes$HighChol)
@@ -50,7 +57,6 @@ diabetes$Age <- as.factor(diabetes$Age)
 diabetes$Education  <- as.factor(diabetes$Education)
 diabetes$Income <- as.factor(diabetes$Income)
 diabetes              
-table(diabetes$Education)
 
 # subset data set based on parameter in YAML header
 
@@ -89,8 +95,11 @@ Now we want to investigate the relationship between having diabetes vs all the c
 
 ``` {r chi}
 chisq <- function (x) {
+  #generate contingency table
   a <- table(diabetes_sub$Diabetes_binary, x)
+  #calculate the row percentage and combine with original data set
   c <- cbind(a, a/rowSums(a))
+  #run chi-square test
   b <- chisq.test(a, correct=FALSE)
   return(list(a, c, b))
 }
@@ -120,6 +129,7 @@ We need to pay attention to the categorical variable with a significant chi-squa
 As we all know, high blood pressure and diabetes are related, we want to create a bar chart and visualize the high blood pressure subjects' count and ratio in each diagnosis group. Here we will again, use the `gglot` function and the `geom_bar` function to create the plot. Like last bar chart, we also will set labels for x axis, x ticks, y axis and legend with the `scale_x_discrete`, the `scale_fill_discrete` and the`labs` functions.
 
 ```{r bar1}
+# create a bar plot using the gglot and the geom_bar function.
 h <- ggplot(data = diabetes_sub, aes(x = Diabetes_binary, fill = HighBP))
 h + geom_bar(position = "dodge", alpha = 0.6) +
   scale_x_discrete(breaks=c("0","1"),
@@ -134,6 +144,7 @@ In the bar chart above, we need to focus on the count and ratio of subjects with
 Another health condition that associates with diabetes is high cholesterol, we also want to create a bar chart and compare the high cholesterol subjects' count and ratio in each diagnosis group, using all the functions we used for previous bar plots.
 
 ```{r bar2}
+# create a bar plot using the gglot and the geom_bar function.
 h <- ggplot(data = diabetes_sub, aes(x = Diabetes_binary, fill = HighChol))
 h + geom_bar(position = "dodge", alpha = 0.6) +
   scale_x_discrete(breaks=c("0","1"),
@@ -148,6 +159,7 @@ In the bar chart above, we also need to look at the count and ratio of subjects 
 The association of high BMI and diabetes are proved in many scientific studies, in order to verify if this association also exists in our data, we are looking into the distribution of BMI in both diagnosis group by creating a summary table using `group_by` and `summarise` function, as well as generating a kernel density plot with `ggplot` and `geom_density` function. Additionally, we want to conduct a two sample t-test with `t.test` function and investigate if the means in each diagnosis group are different from each other.
 
 ```{r bmi}
+#create a summary table for BMI to display the center and spread
 diabetes_sub %>%
   group_by(Diabetes_binary) %>%
   summarise(Mean = mean(BMI),  Standard_Deviation = sd(BMI), 
@@ -155,11 +167,13 @@ diabetes_sub %>%
             q1 = quantile(BMI, probs = 0.25),
             q3 = quantile(BMI, probs = 0.75))
 
+#generate a kernal density plot to show the distribution of BMI
 i <- ggplot(data = diabetes_sub, aes(x = BMI, fill = Diabetes_binary)) 
 i + geom_density(adjust = 1, color="#e9ecef", alpha=0.5, position = 'dodge') +
   scale_fill_manual(values=c("#69b3a2", "#404080")) +
   labs(x = "BMI", title = "Kernal density plot of BMI distribution across diagnosis group") 
 
+#conduct a two sample t test for BMI in both diagnosis groups
 t.test(BMI ~ Diabetes_binary, data = diabetes_sub, alternative = "two.sided", var.equal = FALSE)
 ```
 
@@ -174,3 +188,139 @@ GGally::ggpairs(x)
 ```
 
 Let's look for the pairs that have correlation coefficient higher than 0.4. If we do find such pairs, we need to refer to the relationship between each variable and the response, as well as some background knowledge (may do a literature review), in order to decide which variable will be include into the models.
+
+# Modeling
+Since we gained some basic understanding of the data, we can now fit different models and select the best one for prediction. 
+
+## Training and test set
+The first step is to split our data to a training and test set. We will use the `createDataPartition` function and split the data by 70% as the training set and 30% as the test set. 
+
+```{r split}
+set.seed(20)
+index <- createDataPartition(diabetes_sub$Diabetes_binary, p = 0.70, list = FALSE)
+train <- diabetes_sub[index, ]
+test <- diabetes_sub[-index, ]
+```
+
+## Log-Loss
+All of our models' performance will be evaluated by Log-loss. Log loss, also known as logarithmic loss, indicates how close a prediction probability comes to the corresponding true binary value. Thus, it is a common evaluation metric for binary classification models. There are three steps to calculate Log Loss:
+
+1.  Finding the  corrected probabilities.  
+2.  Taking a log of corrected probabilities.  
+3.  Taking the negative average of the values from step 2.  
+
+And the formula is as below:
+
+![](log_loss_formula.PNG)
+
+From the formula we can tell, the lower log-loss is, the better the model performs.
+
+The reason that log-loss is preferred to accuracy is: For accuracy, model returns 1 if predicted probability is > .5 otherwise 0. We could get some prediction probabilities very close to 0.5, but are converted to 1 and 0 which actually match with the true results. Such model could have 100% accuracy but their prediction probabilities are at board line of being wrong. If we use accuracy for model selection, we will keep a bad model. On the other hand, log-loss calculate how far away the prediction probabilities are from the true values, and the log-loss of such model will be high, which reveal the model's true performance. Thus, log-loss is more reliable and accurate for model selection.
+
+## Logistic regression
+The first model we are fitting is logistic regression, which is a generalized linear model that models the probability of an event by calculating the log-odds for the event based on the linear combination of one or more independent variables. The most common logistic regression has a 
+single binary variable as the response, usually the two val
+ues are coded as "0" and "1". 
+
+In logistic regression, the dependent variable is a logit, which is the natural log of the odds and assumed to be linearly related to X as the formula below: 
+
+![](logistic.PNG)
+
+In our data set, logistic regression models are more suitable for our binary response than linear regression models because:
+
+1.  If we use linear regression, the predicted values will become greater than one and less than zero if we move far enough on the X-axis. Such values are not realistic for binary variable.  
+2.  One of the assumptions of regression is that the variance of Y is constant across values of X (homoscedasticity). This can not be the case with a binary variable.  
+3.  The significance testing of the b weights rest upon the assumption that errors of prediction (Y-Y') are normally distributed. Because Y only takes the values 0 and 1, this assumption is pretty hard to justify.  
+
+Now, let's fit 3 logistic regression models with the `train` function on the training data set, and use cross-validation with 5 folds for model selection. After the best model is picked, use the `predict` function to apply it on the test data set and merge the predicted results with the test set's true response. Lastly, use the `mnLogLoss` function to compare their performance with a log-loss method. 
+
+### Model one
+We will include all the low level variables in our first model:
+```{r log}
+#fit the model on the training data set
+full_log <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income,
+              data=train, 
+              method = "glm", 
+              family = "binomial",
+              metric="logLoss",
+              preProcess = c("center", "scale"),
+              trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+full_log
+summary(full_log)
+
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted <- data.frame(obs=test$diabetes_dx,
+             pred=predict(full_log, test),
+             predict(full_log, test, type="prob"))
+
+#calculate the log-loss
+mnLogLoss(predicted, lev = levels(predicted$obs))
+```
+
+### Model two
+We will include all the low level variables and interactions between HighBP & HighChol, HighBP & BMI, HighChol & BMI, PhysActivity & BMI, and BMI & GenHlth in our second model:
+```{r log2}
+#fit the model on the training data set
+inter_log <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income + HighBP:HighChol + HighBP:BMI + HighChol:BMI + PhysActivity:BMI + BMI:GenHlth,
+              data=train, 
+              method = "glm", 
+              family = "binomial",
+              metric="logLoss",
+              preProcess = c("center", "scale"),
+              trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+inter_log
+summary(inter_log)
+
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted2 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(inter_log, test),
+             predict(inter_log, test, type="prob"))
+
+#calculate the log-loss
+mnLogLoss(predicted2, lev = levels(predicted2$obs))
+```
+
+### Model three
+We will include all the low level variables and polynomial term for numeric variables in our third model:
+```{r log3}
+
+#fit the model on the training data set
+poly_log <- train(diabetes_dx ~  HighBP + HighChol + CholCheck + I(BMI^2) + BMI + Smoker 
+                  + Stroke + HeartDiseaseorAttack + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth 
+                  + I(MentHlth^2) + MentHlth + I(PhysHlth^2) + PhysHlth + DiffWalk + Sex + Age + Income,
+              data=train, 
+              method = "glm", 
+              family = "binomial",
+              metric="logLoss",
+              preProcess = c("center", "scale"),
+              trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+poly_log
+summary(poly_log)
+
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted3 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(poly_log, test),
+             predict(poly_log, test, type="prob"))
+
+#calculate the log-loss
+
+mnLogLoss(predicted3, lev = levels(predicted3$obs))
+```
+
+From the result we can tell, the third model has the lowest log-loss value, thus, the model with polynomial term for numeric variables is the best logistic regression model for predicting diabetes diagnosis. 
+
+## Random forest
+The next model we will fit is a tree based model called random forest. This model is made up of multiple decision trees which are non-parametric supervised learning method and used for classification and regression. The goal of decision tree is to create a model that predicts the value of a target variable by splitting the predictor into regions with different predictions for each region. A random forest utilizes the "bootstrap" method to takes repeatedly sampling with replacement, fits multiple decision trees with a random subset of predictors, then returns the average result from all the decision trees.
+
+Random forests are generally more accurate than individual classification trees because there is always a scope for over fitting caused by the presence of variance in classification trees, while random forests combine multiple trees and prevent over fitting. Random forests also average the predicted results from classification trees and gives a more accurate and precise prediction.
+
+Now we can set up a random forest model for our data. we will still use the `train` function but  with method `rf`. The `tuneGrid` option
+is where we tell the model how many predictor variables to grab per bootstrap sample. The `trainControl` function within the `trControl` option 
+will be used for cross-validation with 5 folds for model selection. After the best model is picked, use the `predict` function to apply it on the test data set and merge the predicted results with the test set's true response. Lastly, use the `mnLogLoss` function to compare their performance with a log-loss method. 
+
+
+```
