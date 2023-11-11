@@ -17,7 +17,10 @@ Vivi
   - [Training and test set](#training-and-test-set)
   - [Log-Loss](#log-loss)
   - [Logistic regression](#logistic-regression)
+  - [Model selection for logistic
+    regression](#model-selection-for-logistic-regression)
   - [Random forest](#random-forest)
+  - [Logistic model tree](#logistic-model-tree)
 
 # Introduction
 
@@ -42,6 +45,7 @@ library(GGally)
 library(devtools)
 library(leaps)
 library(glmnet)
+library(RWeka)
 
 
 diabetes <- read_csv(file = "diabetes_binary_health_indicators_BRFSS2015.csv")
@@ -101,25 +105,25 @@ diabetes
 
 diabetes_sub <- diabetes %>% 
 
-                   filter(Education == "6")
+                   filter(Education == "1")
 
 diabetes_sub
 ```
 
-    ## # A tibble: 107,325 × 23
+    ## # A tibble: 174 × 23
     ##    Diabetes_binary HighBP HighChol CholCheck   BMI Smoker Stroke
     ##    <fct>           <fct>  <fct>    <fct>     <dbl> <fct>  <fct> 
-    ##  1 0               0      0        0            25 1      0     
-    ##  2 0               1      1        1            25 1      0     
-    ##  3 0               1      0        1            30 1      0     
-    ##  4 1               0      0        1            25 1      0     
-    ##  5 0               0      1        1            33 1      1     
-    ##  6 0               1      0        1            33 0      0     
-    ##  7 0               0      0        0            23 0      0     
-    ##  8 0               0      1        1            28 0      0     
-    ##  9 0               0      0        1            32 0      0     
-    ## 10 1               1      1        1            37 1      1     
-    ## # ℹ 107,315 more rows
+    ##  1 1               1      1        1            42 0      0     
+    ##  2 0               1      0        1            23 1      0     
+    ##  3 0               0      0        1            22 0      0     
+    ##  4 0               0      0        1            20 0      0     
+    ##  5 1               1      1        1            29 0      0     
+    ##  6 1               1      0        1            35 0      1     
+    ##  7 1               0      1        1            28 1      0     
+    ##  8 0               0      1        1            35 0      0     
+    ##  9 0               1      1        1            52 0      0     
+    ## 10 1               1      0        1            32 0      0     
+    ## # ℹ 164 more rows
     ## # ℹ 16 more variables: HeartDiseaseorAttack <fct>, PhysActivity <fct>,
     ## #   Fruits <fct>, Veggies <fct>, HvyAlcoholConsump <fct>, AnyHealthcare <fct>,
     ## #   NoDocbcCost <fct>, GenHlth <fct>, MentHlth <dbl>, PhysHlth <dbl>,
@@ -147,8 +151,8 @@ table(diabetes_sub$Diabetes_binary)
 ```
 
     ## 
-    ##     0     1 
-    ## 96925 10400
+    ##   0   1 
+    ## 127  47
 
 ``` r
 g <- ggplot(data = diabetes_sub, aes(x = Diabetes_binary, fill = Diabetes_binary))
@@ -188,21 +192,21 @@ chisq(diabetes_sub$HighBP)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 66157 30768
-    ##   1  2930  7470
+    ##      0  1
+    ##   0 74 53
+    ##   1 12 35
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 66157 30768 0.6825587 0.3174413
-    ## 1  2930  7470 0.2817308 0.7182692
+    ##    0  1         0         1
+    ## 0 74 53 0.5826772 0.4173228
+    ## 1 12 35 0.2553191 0.7446809
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 6579.5, df = 1, p-value < 2.2e-16
+    ## X-squared = 14.707, df = 1, p-value = 0.0001256
 
 ``` r
 chisq(diabetes_sub$HighChol)
@@ -210,21 +214,21 @@ chisq(diabetes_sub$HighChol)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 61767 35158
-    ##   1  3604  6796
+    ##      0  1
+    ##   0 70 57
+    ##   1 17 30
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 61767 35158 0.6372659 0.3627341
-    ## 1  3604  6796 0.3465385 0.6534615
+    ##    0  1         0         1
+    ## 0 70 57 0.5511811 0.4488189
+    ## 1 17 30 0.3617021 0.6382979
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 3334.1, df = 1, p-value < 2.2e-16
+    ## X-squared = 4.9265, df = 1, p-value = 0.02645
 
 ``` r
 chisq(diabetes_sub$CholCheck)
@@ -232,21 +236,21 @@ chisq(diabetes_sub$CholCheck)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0  3761 93164
-    ##   1    49 10351
+    ##       0   1
+    ##   0   7 120
+    ##   1   0  47
     ## 
     ## [[2]]
-    ##      0     1           0         1
-    ## 0 3761 93164 0.038803198 0.9611968
-    ## 1   49 10351 0.004711538 0.9952885
+    ##   0   1          0         1
+    ## 0 7 120 0.05511811 0.9448819
+    ## 1 0  47 0.00000000 1.0000000
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 318.81, df = 1, p-value < 2.2e-16
+    ## X-squared = 2.6991, df = 1, p-value = 0.1004
 
 ``` r
 chisq(diabetes_sub$Smoker)
@@ -254,21 +258,21 @@ chisq(diabetes_sub$Smoker)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 64668 32257
-    ##   1  5847  4553
+    ##      0  1
+    ##   0 78 49
+    ##   1 30 17
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 64668 32257 0.6671963 0.3328037
-    ## 1  5847  4553 0.5622115 0.4377885
+    ##    0  1         0         1
+    ## 0 78 49 0.6141732 0.3858268
+    ## 1 30 17 0.6382979 0.3617021
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 459.38, df = 1, p-value < 2.2e-16
+    ## X-squared = 0.084802, df = 1, p-value = 0.7709
 
 ``` r
 chisq(diabetes_sub$Stroke)
@@ -276,21 +280,21 @@ chisq(diabetes_sub$Stroke)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 94869  2056
-    ##   1  9635   765
+    ##       0   1
+    ##   0 122   5
+    ##   1  38   9
     ## 
     ## [[2]]
-    ##       0    1         0          1
-    ## 0 94869 2056 0.9787877 0.02121228
-    ## 1  9635  765 0.9264423 0.07355769
+    ##     0 1         0          1
+    ## 0 122 5 0.9606299 0.03937008
+    ## 1  38 9 0.8085106 0.19148936
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 1005.5, df = 1, p-value < 2.2e-16
+    ## X-squared = 10.729, df = 1, p-value = 0.001055
 
 ``` r
 chisq(diabetes_sub$HeartDiseaseorAttack)
@@ -298,21 +302,21 @@ chisq(diabetes_sub$HeartDiseaseorAttack)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 91849  5076
-    ##   1  8393  2007
+    ##       0   1
+    ##   0 117  10
+    ##   1  28  19
     ## 
     ## [[2]]
-    ##       0    1         0          1
-    ## 0 91849 5076 0.9476296 0.05237039
-    ## 1  8393 2007 0.8070192 0.19298077
+    ##     0  1         0          1
+    ## 0 117 10 0.9212598 0.07874016
+    ## 1  28 19 0.5957447 0.40425532
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 3012.6, df = 1, p-value < 2.2e-16
+    ## X-squared = 26.171, df = 1, p-value = 3.124e-07
 
 ``` r
 chisq(diabetes_sub$PhysActivity)
@@ -320,21 +324,21 @@ chisq(diabetes_sub$PhysActivity)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 13781 83144
-    ##   1  2849  7551
+    ##      0  1
+    ##   0 59 68
+    ##   1 20 27
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 13781 83144 0.1421821 0.8578179
-    ## 1  2849  7551 0.2739423 0.7260577
+    ##    0  1         0         1
+    ## 0 59 68 0.4645669 0.5354331
+    ## 1 20 27 0.4255319 0.5744681
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 1245.3, df = 1, p-value < 2.2e-16
+    ## X-squared = 0.21087, df = 1, p-value = 0.6461
 
 ``` r
 chisq(diabetes_sub$Fruits)
@@ -342,21 +346,21 @@ chisq(diabetes_sub$Fruits)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 29108 67817
-    ##   1  3760  6640
+    ##      0  1
+    ##   0 51 76
+    ##   1 13 34
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 29108 67817 0.3003147 0.6996853
-    ## 1  3760  6640 0.3615385 0.6384615
+    ##    0  1         0         1
+    ## 0 51 76 0.4015748 0.5984252
+    ## 1 13 34 0.2765957 0.7234043
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 165.7, df = 1, p-value < 2.2e-16
+    ## X-squared = 2.3044, df = 1, p-value = 0.129
 
 ``` r
 chisq(diabetes_sub$Veggies)
@@ -364,21 +368,21 @@ chisq(diabetes_sub$Veggies)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 12068 84857
-    ##   1  1794  8606
+    ##      0  1
+    ##   0 35 92
+    ##   1 12 35
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 12068 84857 0.1245086 0.8754914
-    ## 1  1794  8606 0.1725000 0.8275000
+    ##    0  1         0         1
+    ## 0 35 92 0.2755906 0.7244094
+    ## 1 12 35 0.2553191 0.7446809
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 192.32, df = 1, p-value < 2.2e-16
+    ## X-squared = 0.071502, df = 1, p-value = 0.7892
 
 ``` r
 chisq(diabetes_sub$HvyAlcoholConsump)
@@ -386,21 +390,21 @@ chisq(diabetes_sub$HvyAlcoholConsump)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 90705  6220
-    ##   1 10125   275
+    ##       0   1
+    ##   0 120   7
+    ##   1  47   0
     ## 
     ## [[2]]
-    ##       0    1         0          1
-    ## 0 90705 6220 0.9358267 0.06417333
-    ## 1 10125  275 0.9735577 0.02644231
+    ##     0 1         0          1
+    ## 0 120 7 0.9448819 0.05511811
+    ## 1  47 0 1.0000000 0.00000000
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 235.18, df = 1, p-value < 2.2e-16
+    ## X-squared = 2.6991, df = 1, p-value = 0.1004
 
 ``` r
 chisq(diabetes_sub$AnyHealthcare)
@@ -408,21 +412,21 @@ chisq(diabetes_sub$AnyHealthcare)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0  2376 94549
-    ##   1   218 10182
+    ##      0  1
+    ##   0 32 95
+    ##   1  5 42
     ## 
     ## [[2]]
-    ##      0     1          0         1
-    ## 0 2376 94549 0.02451380 0.9754862
-    ## 1  218 10182 0.02096154 0.9790385
+    ##    0  1         0         1
+    ## 0 32 95 0.2519685 0.7480315
+    ## 1  5 42 0.1063830 0.8936170
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 5.025, df = 1, p-value = 0.02498
+    ## X-squared = 4.3428, df = 1, p-value = 0.03717
 
 ``` r
 chisq(diabetes_sub$NoDocbcCost)
@@ -430,21 +434,21 @@ chisq(diabetes_sub$NoDocbcCost)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 91874  5051
-    ##   1  9659   741
+    ##      0  1
+    ##   0 96 31
+    ##   1 37 10
     ## 
     ## [[2]]
-    ##       0    1         0          1
-    ## 0 91874 5051 0.9478875 0.05211246
-    ## 1  9659  741 0.9287500 0.07125000
+    ##    0  1         0         1
+    ## 0 96 31 0.7559055 0.2440945
+    ## 1 37 10 0.7872340 0.2127660
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 67.376, df = 1, p-value = 2.243e-16
+    ## X-squared = 0.18694, df = 1, p-value = 0.6655
 
 ``` r
 chisq(diabetes_sub$GenHlth)
@@ -452,24 +456,21 @@ chisq(diabetes_sub$GenHlth)
 
     ## [[1]]
     ##    x
-    ##         1     2     3     4     5
-    ##   0 26023 41480 22751  5274  1397
-    ##   1   463  2626  4343  2146   822
+    ##      1  2  3  4  5
+    ##   0  8 26 37 41 15
+    ##   1  1  0 12 15 19
     ## 
     ## [[2]]
-    ##       1     2     3    4    5          1         2         3          4
-    ## 0 26023 41480 22751 5274 1397 0.26848594 0.4279598 0.2347279 0.05441321
-    ## 1   463  2626  4343 2146  822 0.04451923 0.2525000 0.4175962 0.20634615
-    ##            5
-    ## 0 0.01441321
-    ## 1 0.07903846
+    ##   1  2  3  4  5          1         2         3         4         5
+    ## 0 8 26 37 41 15 0.06299213 0.2047244 0.2913386 0.3228346 0.1181102
+    ## 1 1  0 12 15 19 0.02127660 0.0000000 0.2553191 0.3191489 0.4042553
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 8890, df = 4, p-value < 2.2e-16
+    ## X-squared = 25.31, df = 4, p-value = 4.358e-05
 
 ``` r
 chisq(diabetes_sub$DiffWalk)
@@ -477,21 +478,21 @@ chisq(diabetes_sub$DiffWalk)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 89388  7537
-    ##   1  7647  2753
+    ##      0  1
+    ##   0 94 33
+    ##   1 20 27
     ## 
     ## [[2]]
-    ##       0    1         0          1
-    ## 0 89388 7537 0.9222388 0.07776116
-    ## 1  7647 2753 0.7352885 0.26471154
+    ##    0  1         0         1
+    ## 0 94 33 0.7401575 0.2598425
+    ## 1 20 27 0.4255319 0.5744681
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 3786.9, df = 1, p-value < 2.2e-16
+    ## X-squared = 15.031, df = 1, p-value = 0.0001058
 
 ``` r
 chisq(diabetes_sub$Sex)
@@ -499,21 +500,21 @@ chisq(diabetes_sub$Sex)
 
     ## [[1]]
     ##    x
-    ##         0     1
-    ##   0 53299 43626
-    ##   1  4538  5862
+    ##      0  1
+    ##   0 72 55
+    ##   1 30 17
     ## 
     ## [[2]]
-    ##       0     1         0         1
-    ## 0 53299 43626 0.5498994 0.4501006
-    ## 1  4538  5862 0.4363462 0.5636538
+    ##    0  1         0         1
+    ## 0 72 55 0.5669291 0.4330709
+    ## 1 30 17 0.6382979 0.3617021
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 487.38, df = 1, p-value < 2.2e-16
+    ## X-squared = 0.72033, df = 1, p-value = 0.396
 
 ``` r
 chisq(diabetes_sub$Income)
@@ -521,24 +522,24 @@ chisq(diabetes_sub$Income)
 
     ## [[1]]
     ##    x
-    ##         1     2     3     4     5     6     7     8
-    ##   0  1087  1230  1908  3136  5507 10773 17638 55646
-    ##   1   220   315   434   584   983  1597  2094  4173
+    ##      1  2  3  4  5  6  7  8
+    ##   0 23 15 19 13 19 16 12 10
+    ##   1 14 10  9  5  3  2  1  3
     ## 
     ## [[2]]
-    ##      1    2    3    4    5     6     7     8          1          2          3
-    ## 0 1087 1230 1908 3136 5507 10773 17638 55646 0.01121486 0.01269022 0.01968532
-    ## 1  220  315  434  584  983  1597  2094  4173 0.02115385 0.03028846 0.04173077
-    ##            4          5         6         7        8
-    ## 0 0.03235491 0.05681713 0.1111478 0.1819758 0.574114
-    ## 1 0.05615385 0.09451923 0.1535577 0.2013462 0.401250
+    ##    1  2  3  4  5  6  7  8         1         2         3         4          5
+    ## 0 23 15 19 13 19 16 12 10 0.1811024 0.1181102 0.1496063 0.1023622 0.14960630
+    ## 1 14 10  9  5  3  2  1  3 0.2978723 0.2127660 0.1914894 0.1063830 0.06382979
+    ##            6          7          8
+    ## 0 0.12598425 0.09448819 0.07874016
+    ## 1 0.04255319 0.02127660 0.06382979
     ## 
     ## [[3]]
     ## 
     ##  Pearson's Chi-squared test
     ## 
     ## data:  a
-    ## X-squared = 1531, df = 7, p-value < 2.2e-16
+    ## X-squared = 11.586, df = 7, p-value = 0.115
 
 We need to pay attention to the categorical variable with a significant
 chi-square result (p value smaller than 0.05), that means this
@@ -622,8 +623,8 @@ diabetes_sub %>%
     ## # A tibble: 2 × 7
     ##   Diabetes_binary  Mean Standard_Deviation Variance Median    q1    q3
     ##   <fct>           <dbl>              <dbl>    <dbl>  <dbl> <dbl> <dbl>
-    ## 1 0                27.1               5.98     35.7     26    23    30
-    ## 2 1                31.4               7.06     49.9     30    27    35
+    ## 1 0                29.0               7.03     49.4     28  24      32
+    ## 2 1                31.8               7.62     58.1     29  26.5    35
 
 ``` r
 #generate a kernal density plot to show the distribution of BMI
@@ -644,13 +645,13 @@ t.test(BMI ~ Diabetes_binary, data = diabetes_sub, alternative = "two.sided", va
     ##  Welch Two Sample t-test
     ## 
     ## data:  BMI by Diabetes_binary
-    ## t = -59.195, df = 12052, p-value < 2.2e-16
+    ## t = -2.1514, df = 76.704, p-value = 0.03459
     ## alternative hypothesis: true difference in means between group 0 and group 1 is not equal to 0
     ## 95 percent confidence interval:
-    ##  -4.394665 -4.112947
+    ##  -5.2806372 -0.2040336
     ## sample estimates:
     ## mean in group 0 mean in group 1 
-    ##        27.10773        31.36154
+    ##        29.02362        31.76596
 
 The summary table gives us the center (mean and median) and spread
 (standard_deviation, variance, q1 and q3) of BMI in each diagnosis
@@ -789,17 +790,17 @@ full_log
 
     ## Generalized Linear Model 
     ## 
-    ## 75128 samples
-    ##    20 predictor
-    ##     2 classes: 'No', 'Yes' 
+    ## 122 samples
+    ##  20 predictor
+    ##   2 classes: 'No', 'Yes' 
     ## 
     ## Pre-processing: centered (40), scaled (40) 
     ## Resampling: Cross-Validated (5 fold) 
-    ## Summary of sample sizes: 60103, 60102, 60102, 60103, 60102 
+    ## Summary of sample sizes: 98, 97, 97, 99, 97 
     ## Resampling results:
     ## 
-    ##   logLoss  
-    ##   0.2462948
+    ##   logLoss 
+    ##   8.566273
 
 ``` r
 summary(full_log)
@@ -810,58 +811,58 @@ summary(full_log)
     ## NULL
     ## 
     ## Coefficients:
-    ##                        Estimate Std. Error  z value Pr(>|z|)    
-    ## (Intercept)           -3.057994   0.023246 -131.551  < 2e-16 ***
-    ## HighBP1                0.375021   0.014750   25.425  < 2e-16 ***
-    ## HighChol1              0.234252   0.014099   16.614  < 2e-16 ***
-    ## CholCheck1             0.272190   0.032544    8.364  < 2e-16 ***
-    ## BMI                    0.361193   0.011994   30.114  < 2e-16 ***
-    ## Smoker1                0.013268   0.013523    0.981  0.32652    
-    ## Stroke1                0.025724   0.009618    2.674  0.00749 ** 
-    ## HeartDiseaseorAttack1  0.070558   0.010042    7.026 2.12e-12 ***
-    ## PhysActivity1         -0.020864   0.012358   -1.688  0.09136 .  
-    ## Fruits1               -0.054116   0.013785   -3.926 8.64e-05 ***
-    ## Veggies1              -0.008014   0.012846   -0.624  0.53272    
-    ## HvyAlcoholConsump1    -0.190391   0.018810  -10.122  < 2e-16 ***
-    ## AnyHealthcare1        -0.008496   0.015205   -0.559  0.57634    
-    ## NoDocbcCost1           0.017810   0.013392    1.330  0.18355    
-    ## GenHlth2               0.456048   0.030866   14.775  < 2e-16 ***
-    ## GenHlth3               0.734173   0.027057   27.134  < 2e-16 ***
-    ## GenHlth4               0.549160   0.018246   30.097  < 2e-16 ***
-    ## GenHlth5               0.363707   0.013666   26.615  < 2e-16 ***
-    ## MentHlth              -0.033673   0.013033   -2.584  0.00978 ** 
-    ## PhysHlth              -0.033922   0.013677   -2.480  0.01313 *  
-    ## DiffWalk1              0.031384   0.011848    2.649  0.00807 ** 
-    ## Sex1                   0.169109   0.014411   11.734  < 2e-16 ***
-    ## Age2                  -0.051021   0.067230   -0.759  0.44791    
-    ## Age3                   0.069479   0.073425    0.946  0.34402    
-    ## Age4                   0.120322   0.079250    1.518  0.12895    
-    ## Age5                   0.274119   0.083311    3.290  0.00100 ** 
-    ## Age6                   0.279447   0.089057    3.138  0.00170 ** 
-    ## Age7                   0.441135   0.094057    4.690 2.73e-06 ***
-    ## Age8                   0.465968   0.099172    4.699 2.62e-06 ***
-    ## Age9                   0.565636   0.105020    5.386 7.20e-08 ***
-    ## Age10                  0.629083   0.104069    6.045 1.50e-09 ***
-    ## Age11                  0.531182   0.087231    6.089 1.13e-09 ***
-    ## Age12                  0.400751   0.068526    5.848 4.97e-09 ***
-    ## Age13                  0.370520   0.069644    5.320 1.04e-07 ***
-    ## Income2               -0.005960   0.015978   -0.373  0.70914    
-    ## Income3                0.005075   0.018266    0.278  0.78112    
-    ## Income4               -0.008503   0.021889   -0.388  0.69767    
-    ## Income5               -0.006887   0.026876   -0.256  0.79776    
-    ## Income6               -0.017969   0.035025   -0.513  0.60792    
-    ## Income7               -0.062760   0.042002   -1.494  0.13511    
-    ## Income8               -0.165437   0.052981   -3.123  0.00179 ** 
+    ##                         Estimate Std. Error z value Pr(>|z|)  
+    ## (Intercept)             -8.48524  714.25805  -0.012   0.9905  
+    ## HighBP1                  0.22703    0.47089   0.482   0.6297  
+    ## HighChol1                0.12634    0.43168   0.293   0.7698  
+    ## CholCheck1               4.35733 1050.82922   0.004   0.9967  
+    ## BMI                      0.38402    0.48482   0.792   0.4283  
+    ## Smoker1                 -1.11111    0.63121  -1.760   0.0784 .
+    ## Stroke1                  0.46451    0.44278   1.049   0.2941  
+    ## HeartDiseaseorAttack1    0.66317    0.47235   1.404   0.1603  
+    ## PhysActivity1            0.03967    0.44184   0.090   0.9285  
+    ## Fruits1                  0.76868    0.52426   1.466   0.1426  
+    ## Veggies1                 0.14393    0.40478   0.356   0.7222  
+    ## HvyAlcoholConsump1      -2.26260 1220.00808  -0.002   0.9985  
+    ## AnyHealthcare1           0.62352    0.63012   0.990   0.3224  
+    ## NoDocbcCost1            -0.35793    0.56212  -0.637   0.5243  
+    ## GenHlth2                -5.77725 1148.63246  -0.005   0.9960  
+    ## GenHlth3                 2.13947    1.27344   1.680   0.0929 .
+    ## GenHlth4                 1.21288    1.21084   1.002   0.3165  
+    ## GenHlth5                 2.77698    1.25587   2.211   0.0270 *
+    ## MentHlth                -0.88173    0.54722  -1.611   0.1071  
+    ## PhysHlth                -0.18824    0.65066  -0.289   0.7723  
+    ## DiffWalk1                0.10750    0.63309   0.170   0.8652  
+    ## Sex1                     0.75312    0.54469   1.383   0.1668  
+    ## Age2                    -0.08394 1631.57886   0.000   1.0000  
+    ## Age3                    -4.17442 1190.79657  -0.004   0.9972  
+    ## Age4                    -4.66224 1222.21595  -0.004   0.9970  
+    ## Age5                    -5.55840 1166.71669  -0.005   0.9962  
+    ## Age6                    -1.50949    1.04595  -1.443   0.1490  
+    ## Age7                    -1.27042    0.95433  -1.331   0.1831  
+    ## Age8                    -0.27795    0.91994  -0.302   0.7626  
+    ## Age9                    -0.74675    1.15180  -0.648   0.5168  
+    ## Age10                   -0.82413    0.97488  -0.845   0.3979  
+    ## Age11                   -0.38343    0.96094  -0.399   0.6899  
+    ## Age12                   -0.41293    0.97379  -0.424   0.6715  
+    ## Age13                   -1.55336    0.94572  -1.643   0.1005  
+    ## Income2                  0.30384    0.52795   0.576   0.5649  
+    ## Income3                  0.04880    0.48994   0.100   0.9207  
+    ## Income4                  0.08258    0.60041   0.138   0.8906  
+    ## Income5                 -0.14612    0.52143  -0.280   0.7793  
+    ## Income6                 -0.68655    0.53630  -1.280   0.2005  
+    ## Income7                 -1.15446    0.71175  -1.622   0.1048  
+    ## Income8                 -0.51427    0.46543  -1.105   0.2692  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ## (Dispersion parameter for binomial family taken to be 1)
     ## 
-    ##     Null deviance: 47815  on 75127  degrees of freedom
-    ## Residual deviance: 36910  on 75087  degrees of freedom
-    ## AIC: 36992
+    ##     Null deviance: 142.434  on 121  degrees of freedom
+    ## Residual deviance:  62.193  on  81  degrees of freedom
+    ## AIC: 144.19
     ## 
-    ## Number of Fisher Scoring iterations: 7
+    ## Number of Fisher Scoring iterations: 19
 
 ``` r
 #apply the best model on the test set and merge the predicted results with the true response into one data frame
@@ -870,11 +871,8 @@ predicted <- data.frame(obs=test$diabetes_dx,
              predict(full_log, test, type="prob"))
 
 #calculate the log-loss
-mnLogLoss(predicted, lev = levels(predicted$obs))
+a <- mnLogLoss(predicted, lev = levels(predicted$obs))
 ```
-
-    ##   logLoss 
-    ## 0.2448419
 
 ### Model two
 
@@ -898,17 +896,17 @@ inter_log
 
     ## Generalized Linear Model 
     ## 
-    ## 75128 samples
-    ##    20 predictor
-    ##     2 classes: 'No', 'Yes' 
+    ## 122 samples
+    ##  20 predictor
+    ##   2 classes: 'No', 'Yes' 
     ## 
     ## Pre-processing: centered (48), scaled (48) 
     ## Resampling: Cross-Validated (5 fold) 
-    ## Summary of sample sizes: 60103, 60102, 60102, 60103, 60102 
+    ## Summary of sample sizes: 97, 98, 99, 97, 97 
     ## Resampling results:
     ## 
-    ##   logLoss  
-    ##   0.2462299
+    ##   logLoss 
+    ##   13.39856
 
 ``` r
 summary(inter_log)
@@ -919,66 +917,66 @@ summary(inter_log)
     ## NULL
     ## 
     ## Coefficients:
-    ##                        Estimate Std. Error  z value Pr(>|z|)    
-    ## (Intercept)           -3.051325   0.023833 -128.030  < 2e-16 ***
-    ## HighBP1                0.265025   0.061873    4.283 1.84e-05 ***
-    ## HighChol1              0.131255   0.058993    2.225  0.02609 *  
-    ## CholCheck1             0.270199   0.032560    8.298  < 2e-16 ***
-    ## BMI                    0.279899   0.047670    5.872 4.32e-09 ***
-    ## Smoker1                0.013490   0.013543    0.996  0.31921    
-    ## Stroke1                0.026723   0.009649    2.769  0.00562 ** 
-    ## HeartDiseaseorAttack1  0.071142   0.010071    7.064 1.62e-12 ***
-    ## PhysActivity1         -0.151705   0.050895   -2.981  0.00288 ** 
-    ## Fruits1               -0.053982   0.013806   -3.910 9.23e-05 ***
-    ## Veggies1              -0.008967   0.012861   -0.697  0.48565    
-    ## HvyAlcoholConsump1    -0.189230   0.018816  -10.057  < 2e-16 ***
-    ## AnyHealthcare1        -0.008648   0.015253   -0.567  0.57074    
-    ## NoDocbcCost1           0.017829   0.013443    1.326  0.18473    
-    ## GenHlth2               0.581703   0.108006    5.386 7.21e-08 ***
-    ## GenHlth3               0.817628   0.095453    8.566  < 2e-16 ***
-    ## GenHlth4               0.569746   0.062891    9.059  < 2e-16 ***
-    ## GenHlth5               0.268533   0.047113    5.700 1.20e-08 ***
-    ## MentHlth              -0.034317   0.013094   -2.621  0.00877 ** 
-    ## PhysHlth              -0.033566   0.013714   -2.448  0.01438 *  
-    ## DiffWalk1              0.029224   0.011907    2.454  0.01411 *  
-    ## Sex1                   0.169321   0.014437   11.728  < 2e-16 ***
-    ## Age2                  -0.050483   0.067144   -0.752  0.45213    
-    ## Age3                   0.072115   0.073340    0.983  0.32546    
-    ## Age4                   0.119392   0.079171    1.508  0.13155    
-    ## Age5                   0.271187   0.083238    3.258  0.00112 ** 
-    ## Age6                   0.274629   0.088989    3.086  0.00203 ** 
-    ## Age7                   0.436930   0.093971    4.650 3.33e-06 ***
-    ## Age8                   0.461016   0.099084    4.653 3.27e-06 ***
-    ## Age9                   0.561857   0.104922    5.355 8.56e-08 ***
-    ## Age10                  0.626787   0.103968    6.029 1.65e-09 ***
-    ## Age11                  0.530329   0.087146    6.086 1.16e-09 ***
-    ## Age12                  0.400360   0.068462    5.848 4.98e-09 ***
-    ## Age13                  0.372241   0.069574    5.350 8.78e-08 ***
-    ## Income2               -0.006109   0.016089   -0.380  0.70417    
-    ## Income3                0.005237   0.018371    0.285  0.77557    
-    ## Income4               -0.008598   0.022024   -0.390  0.69626    
-    ## Income5               -0.006635   0.027041   -0.245  0.80618    
-    ## Income6               -0.016027   0.035251   -0.455  0.64937    
-    ## Income7               -0.060963   0.042273   -1.442  0.14927    
-    ## Income8               -0.162910   0.053332   -3.055  0.00225 ** 
-    ## `HighBP1:HighChol1`   -0.034656   0.024040   -1.442  0.14942    
-    ## `HighBP1:BMI`          0.134878   0.058701    2.298  0.02158 *  
-    ## `HighChol1:BMI`        0.126678   0.054864    2.309  0.02095 *  
-    ## `BMI:PhysActivity1`    0.130314   0.048962    2.662  0.00778 ** 
-    ## `BMI:GenHlth2`        -0.125862   0.103589   -1.215  0.22436    
-    ## `BMI:GenHlth3`        -0.090702   0.097129   -0.934  0.35039    
-    ## `BMI:GenHlth4`        -0.026276   0.065447   -0.401  0.68807    
-    ## `BMI:GenHlth5`         0.094995   0.047706    1.991  0.04645 *  
+    ##                         Estimate Std. Error z value Pr(>|z|)  
+    ## (Intercept)            -10.40660  678.83338  -0.015   0.9878  
+    ## HighBP1                  5.57090    4.14541   1.344   0.1790  
+    ## HighChol1                4.71616    3.37935   1.396   0.1628  
+    ## CholCheck1               3.27181 1075.34359   0.003   0.9976  
+    ## BMI                     23.73232   57.33426   0.414   0.6789  
+    ## Smoker1                 -2.22027    1.11556  -1.990   0.0466 *
+    ## Stroke1                  0.51169    0.64650   0.791   0.4287  
+    ## HeartDiseaseorAttack1    1.15111    0.91649   1.256   0.2091  
+    ## PhysActivity1           -2.26370    2.88099  -0.786   0.4320  
+    ## Fruits1                  1.28489    0.84765   1.516   0.1296  
+    ## Veggies1                 0.17141    0.57057   0.300   0.7639  
+    ## HvyAlcoholConsump1      -1.61495 1220.30371  -0.001   0.9989  
+    ## AnyHealthcare1          -0.64518    0.99904  -0.646   0.5184  
+    ## NoDocbcCost1            -0.37881    0.86746  -0.437   0.6623  
+    ## GenHlth2                30.16512 6341.03794   0.005   0.9962  
+    ## GenHlth3                50.69781  114.32488   0.443   0.6574  
+    ## GenHlth4                40.58450  114.67132   0.354   0.7234  
+    ## GenHlth5                36.23737   93.14900   0.389   0.6973  
+    ## MentHlth                -1.73296    0.97627  -1.775   0.0759 .
+    ## PhysHlth                 0.02479    0.94575   0.026   0.9791  
+    ## DiffWalk1               -0.47826    1.24836  -0.383   0.7016  
+    ## Sex1                     0.97595    0.80655   1.210   0.2263  
+    ## Age2                    -0.33547 1643.69632   0.000   0.9998  
+    ## Age3                    -5.51754 1084.62837  -0.005   0.9959  
+    ## Age4                    -5.47748 1265.74294  -0.004   0.9965  
+    ## Age5                    -7.67809 1066.74790  -0.007   0.9943  
+    ## Age6                    -3.58472    3.83586  -0.935   0.3500  
+    ## Age7                    -3.83291    3.83746  -0.999   0.3179  
+    ## Age8                    -1.57327    3.98348  -0.395   0.6929  
+    ## Age9                    -1.74459    4.53018  -0.385   0.7002  
+    ## Age10                   -2.79640    4.01446  -0.697   0.4861  
+    ## Age11                   -1.37209    4.04603  -0.339   0.7345  
+    ## Age12                   -1.92879    3.96927  -0.486   0.6270  
+    ## Age13                   -2.33436    3.21988  -0.725   0.4685  
+    ## Income2                  0.18681    0.69982   0.267   0.7895  
+    ## Income3                 -0.89796    1.10238  -0.815   0.4153  
+    ## Income4                  0.18770    0.89366   0.210   0.8336  
+    ## Income5                 -0.86367    0.79864  -1.081   0.2795  
+    ## Income6                 -1.79642    0.99574  -1.804   0.0712 .
+    ## Income7                 -2.84565    1.49982  -1.897   0.0578 .
+    ## Income8                 -0.12144    0.58414  -0.208   0.8353  
+    ## `HighBP1:HighChol1`     -3.68251    1.72971  -2.129   0.0333 *
+    ## `HighBP1:BMI`           -2.89863    4.20908  -0.689   0.4910  
+    ## `HighChol1:BMI`         -1.56475    3.48229  -0.449   0.6532  
+    ## `BMI:PhysActivity1`      2.02444    2.74963   0.736   0.4616  
+    ## `BMI:GenHlth2`         -29.46338 6550.60534  -0.004   0.9964  
+    ## `BMI:GenHlth3`         -48.42817  115.71756  -0.419   0.6756  
+    ## `BMI:GenHlth4`         -37.00119  108.21560  -0.342   0.7324  
+    ## `BMI:GenHlth5`         -34.73492   96.86088  -0.359   0.7199  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ## (Dispersion parameter for binomial family taken to be 1)
     ## 
-    ##     Null deviance: 47815  on 75127  degrees of freedom
-    ## Residual deviance: 36877  on 75079  degrees of freedom
-    ## AIC: 36975
+    ##     Null deviance: 142.434  on 121  degrees of freedom
+    ## Residual deviance:  45.934  on  73  degrees of freedom
+    ## AIC: 143.93
     ## 
-    ## Number of Fisher Scoring iterations: 7
+    ## Number of Fisher Scoring iterations: 19
 
 ``` r
 #apply the best model on the test set and merge the predicted results with the true response into one data frame
@@ -987,11 +985,8 @@ predicted2 <- data.frame(obs=test$diabetes_dx,
              predict(inter_log, test, type="prob"))
 
 #calculate the log-loss
-mnLogLoss(predicted2, lev = levels(predicted2$obs))
+b <- mnLogLoss(predicted2, lev = levels(predicted2$obs))
 ```
-
-    ##   logLoss 
-    ## 0.2447858
 
 ### Model three
 
@@ -1014,17 +1009,17 @@ poly_log
 
     ## Generalized Linear Model 
     ## 
-    ## 75128 samples
-    ##    20 predictor
-    ##     2 classes: 'No', 'Yes' 
+    ## 122 samples
+    ##  20 predictor
+    ##   2 classes: 'No', 'Yes' 
     ## 
     ## Pre-processing: centered (43), scaled (43) 
     ## Resampling: Cross-Validated (5 fold) 
-    ## Summary of sample sizes: 60103, 60102, 60102, 60103, 60102 
+    ## Summary of sample sizes: 98, 97, 97, 98, 98 
     ## Resampling results:
     ## 
-    ##   logLoss  
-    ##   0.2440859
+    ##   logLoss 
+    ##   10.10324
 
 ``` r
 summary(poly_log)
@@ -1035,61 +1030,61 @@ summary(poly_log)
     ## NULL
     ## 
     ## Coefficients:
-    ##                        Estimate Std. Error  z value Pr(>|z|)    
-    ## (Intercept)           -3.096672   0.023604 -131.194  < 2e-16 ***
-    ## HighBP1                0.344351   0.014846   23.194  < 2e-16 ***
-    ## HighChol1              0.232339   0.014144   16.426  < 2e-16 ***
-    ## CholCheck1             0.271133   0.032551    8.329  < 2e-16 ***
-    ## `I(BMI^2)`            -0.783779   0.052723  -14.866  < 2e-16 ***
-    ## BMI                    1.198069   0.054861   21.838  < 2e-16 ***
-    ## Smoker1                0.015518   0.013576    1.143 0.252999    
-    ## Stroke1                0.028211   0.009703    2.907 0.003643 ** 
-    ## HeartDiseaseorAttack1  0.070808   0.010108    7.005 2.46e-12 ***
-    ## PhysActivity1         -0.011980   0.012414   -0.965 0.334499    
-    ## Fruits1               -0.047009   0.013837   -3.397 0.000680 ***
-    ## Veggies1              -0.008251   0.012877   -0.641 0.521692    
-    ## HvyAlcoholConsump1    -0.184761   0.018859   -9.797  < 2e-16 ***
-    ## AnyHealthcare1        -0.009389   0.015285   -0.614 0.539054    
-    ## NoDocbcCost1           0.017854   0.013451    1.327 0.184400    
-    ## GenHlth2               0.429178   0.030905   13.887  < 2e-16 ***
-    ## GenHlth3               0.698665   0.027219   25.669  < 2e-16 ***
-    ## GenHlth4               0.533193   0.018417   28.952  < 2e-16 ***
-    ## GenHlth5               0.357819   0.013741   26.041  < 2e-16 ***
-    ## `I(MentHlth^2)`        0.191852   0.043152    4.446 8.75e-06 ***
-    ## MentHlth              -0.225756   0.045527   -4.959 7.10e-07 ***
-    ## `I(PhysHlth^2)`        0.005804   0.043355    0.134 0.893496    
-    ## PhysHlth              -0.035130   0.046238   -0.760 0.447394    
-    ## DiffWalk1              0.020129   0.011954    1.684 0.092203 .  
-    ## Sex1                   0.155349   0.014545   10.681  < 2e-16 ***
-    ## Age2                  -0.053435   0.067218   -0.795 0.426640    
-    ## Age3                   0.069240   0.073418    0.943 0.345635    
-    ## Age4                   0.102664   0.079301    1.295 0.195451    
-    ## Age5                   0.258639   0.083372    3.102 0.001921 ** 
-    ## Age6                   0.255108   0.089158    2.861 0.004219 ** 
-    ## Age7                   0.418228   0.094167    4.441 8.94e-06 ***
-    ## Age8                   0.445037   0.099290    4.482 7.39e-06 ***
-    ## Age9                   0.541335   0.105152    5.148 2.63e-07 ***
-    ## Age10                  0.607393   0.104207    5.829 5.58e-09 ***
-    ## Age11                  0.516298   0.087352    5.911 3.41e-09 ***
-    ## Age12                  0.395161   0.068627    5.758 8.51e-09 ***
-    ## Age13                  0.377003   0.069754    5.405 6.49e-08 ***
-    ## Income2               -0.006674   0.016038   -0.416 0.677302    
-    ## Income3                0.002920   0.018338    0.159 0.873491    
-    ## Income4               -0.013578   0.021966   -0.618 0.536484    
-    ## Income5               -0.011185   0.026942   -0.415 0.678018    
-    ## Income6               -0.027146   0.035111   -0.773 0.439442    
-    ## Income7               -0.074342   0.042098   -1.766 0.077407 .  
-    ## Income8               -0.177693   0.053095   -3.347 0.000818 ***
+    ##                         Estimate Std. Error z value Pr(>|z|)  
+    ## (Intercept)            -10.82825  661.47278  -0.016   0.9869  
+    ## HighBP1                  1.15026    0.76221   1.509   0.1313  
+    ## HighChol1                0.73976    0.63241   1.170   0.2421  
+    ## CholCheck1               4.55441  924.00008   0.005   0.9961  
+    ## `I(BMI^2)`             -10.81510    5.61832  -1.925   0.0542 .
+    ## BMI                     12.74196    6.29849   2.023   0.0431 *
+    ## Smoker1                 -2.20158    1.40532  -1.567   0.1172  
+    ## Stroke1                  0.60018    0.79907   0.751   0.4526  
+    ## HeartDiseaseorAttack1    1.02658    1.00042   1.026   0.3048  
+    ## PhysActivity1           -0.32008    0.72059  -0.444   0.6569  
+    ## Fruits1                  2.10006    1.03454   2.030   0.0424 *
+    ## Veggies1                 1.02849    0.75254   1.367   0.1717  
+    ## HvyAlcoholConsump1       0.25023 1338.47468   0.000   0.9999  
+    ## AnyHealthcare1           0.05971    0.75681   0.079   0.9371  
+    ## NoDocbcCost1            -1.55311    0.99609  -1.559   0.1189  
+    ## GenHlth2                -5.04554 1006.05813  -0.005   0.9960  
+    ## GenHlth3                 4.13078    2.29390   1.801   0.0717 .
+    ## GenHlth4                 2.10428    1.90964   1.102   0.2705  
+    ## GenHlth5                 4.80937    2.00377   2.400   0.0164 *
+    ## `I(MentHlth^2)`         -6.09461    5.53890  -1.100   0.2712  
+    ## MentHlth                 4.24175    5.13130   0.827   0.4084  
+    ## `I(PhysHlth^2)`        -12.61604    5.53029  -2.281   0.0225 *
+    ## PhysHlth                12.23013    5.51733   2.217   0.0266 *
+    ## DiffWalk1               -2.27557    1.63688  -1.390   0.1645  
+    ## Sex1                     1.72484    0.99087   1.741   0.0817 .
+    ## Age2                     0.36552 1625.48237   0.000   0.9998  
+    ## Age3                    -5.24928 1027.38325  -0.005   0.9959  
+    ## Age4                    -4.77073 1251.05760  -0.004   0.9970  
+    ## Age5                    -6.62259 1084.68478  -0.006   0.9951  
+    ## Age6                    -2.40955    1.43322  -1.681   0.0927 .
+    ## Age7                    -1.96566    1.44860  -1.357   0.1748  
+    ## Age8                     0.82710    1.28887   0.642   0.5211  
+    ## Age9                    -0.35301    1.31253  -0.269   0.7880  
+    ## Age10                   -0.13126    1.14219  -0.115   0.9085  
+    ## Age11                    0.85624    1.11033   0.771   0.4406  
+    ## Age12                    0.63938    1.31363   0.487   0.6264  
+    ## Age13                   -0.75043    1.22212  -0.614   0.5392  
+    ## Income2                  0.70646    0.80778   0.875   0.3818  
+    ## Income3                 -0.45885    0.70362  -0.652   0.5143  
+    ## Income4                  1.70968    1.05962   1.613   0.1066  
+    ## Income5                 -1.12007    0.99498  -1.126   0.2603  
+    ## Income6                 -2.59103    1.33057  -1.947   0.0515 .
+    ## Income7                 -3.06783    1.51831  -2.021   0.0433 *
+    ## Income8                 -1.78161    1.13581  -1.569   0.1167  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ## (Dispersion parameter for binomial family taken to be 1)
     ## 
-    ##     Null deviance: 47815  on 75127  degrees of freedom
-    ## Residual deviance: 36577  on 75084  degrees of freedom
-    ## AIC: 36665
+    ##     Null deviance: 142.434  on 121  degrees of freedom
+    ## Residual deviance:  43.962  on  78  degrees of freedom
+    ## AIC: 131.96
     ## 
-    ## Number of Fisher Scoring iterations: 7
+    ## Number of Fisher Scoring iterations: 19
 
 ``` r
 #apply the best model on the test set and merge the predicted results with the true response into one data frame
@@ -1098,16 +1093,31 @@ predicted3 <- data.frame(obs=test$diabetes_dx,
              predict(poly_log, test, type="prob"))
 
 #calculate the log-loss
-
-mnLogLoss(predicted3, lev = levels(predicted3$obs))
+c <- mnLogLoss(predicted3, lev = levels(predicted3$obs))
 ```
 
-    ##   logLoss 
-    ## 0.2424569
+## Model selection for logistic regression
 
-From the result we can tell, the third model has the lowest log-loss
-value, thus, the model with polynomial term for numeric variables is the
-best logistic regression model for predicting diabetes diagnosis.
+Now we have log-loss returned from 3 logistic regression models, we want
+to pick the one with the lowest log-loss value. In below code, we will
+compare their log-loss and pick the corresponding one with the lowest
+log-loss value.
+
+``` r
+log_pick <- data.frame(logloss_value = c(a, b, c), model = c("Logistic regression model one", "Logistic regression model two", "Logistc regression model three"))
+log_best <- log_pick[which.min(log_pick$logloss_value),]
+log_best
+```
+
+    ## # A tibble: 1 × 2
+    ##   logloss_value model                        
+    ##           <dbl> <chr>                        
+    ## 1          1.05 Logistic regression model one
+
+From the result we can tell, the Logistic regression model one has the
+lowest log-loss value (1.0520725), thus, the Logistic regression model
+one is the best logistic regression model for predicting diabetes
+diagnosis.
 
 ## Random forest
 
@@ -1138,4 +1148,122 @@ apply it on the test data set and merge the predicted results with the
 test set’s true response. Lastly, use the `mnLogLoss` function to
 compare their performance with a log-loss method.
 
-\`\`\`
+``` r
+ran_for <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income, 
+                data = train,
+                method = "rf",
+                metric="logLoss",
+                preProcess = c("center", "scale"),
+                tuneGrid = data.frame(mtry = c(18:20)),
+                trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+ran_for
+```
+
+    ## Random Forest 
+    ## 
+    ## 122 samples
+    ##  20 predictor
+    ##   2 classes: 'No', 'Yes' 
+    ## 
+    ## Pre-processing: centered (40), scaled (40) 
+    ## Resampling: Cross-Validated (5 fold) 
+    ## Summary of sample sizes: 97, 99, 97, 98, 97 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   mtry  logLoss  
+    ##   18    0.5853624
+    ##   19    0.5862596
+    ##   20    0.5971445
+    ## 
+    ## logLoss was used to select the optimal model using the smallest value.
+    ## The final value used for the model was mtry = 18.
+
+``` r
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted4 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(ran_for, test),
+             predict(ran_for, test, type="prob"))
+
+#calculate the log-loss
+
+d <- mnLogLoss(predicted4, lev = levels(predicted4$obs))
+```
+
+## Logistic model tree
+
+There is one classification model called logistic model tree, it
+combines logistic regression and decision tree – instead of having
+constants at leaves for prediction as the ordinary decision trees, a
+logistic model tree has logistic regression models at its leaves to
+provide prediction locally. The initial tree is built by creating a
+standard classification tree, and afterwards building a logistic
+regression model at every node trained on the set of examples at that
+node. Then, we further split a node and want to build the logistic
+regression function at one of the child nodes. Since we have already fit
+a logistic regression at the parent node, it is reasonable to use it as
+a basis for fitting the logistic regression at the child. We expect that
+the parameters of the model at the parent node already encode ‘global’
+influences of some attributes on the class variable; at the child node,
+the model can be further refined by taking into account influences of
+attributes that are only valid locally, i.e. within the set of training
+examples associated with the child node.
+
+The logistic model tree is fitted by the LogitBoost algorithm which
+iteratively changes the logistic regression at chile node to improve the
+fit to the data by changing one of the coefficients in the linear
+function or introducing a new variable/coefficient pair. At some point,
+adding more variables does not increase the accuracy of the model, but
+splitting the instance space and refining the logistic models locally in
+the two subdivisions created by the split might give a better model.
+After splitting a node we can continue running LogitBoost iterations for
+fitting the logsitc regression model to the response variables of the
+training examples at the child node.
+
+Thus, we tune logistic model tree by giving iteration number. For our
+training set, we use the `LMT` method in `train` function and set the
+iteration number to 1 to 3.
+
+``` r
+log_tr <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income, 
+                data = train,
+                method = "LMT",
+                metric="logLoss",
+                preProcess = c("center", "scale"),
+                tuneGrid = data.frame(iter = c(1:3)),
+                trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+log_tr
+```
+
+    ## Logistic Model Trees 
+    ## 
+    ## 122 samples
+    ##  20 predictor
+    ##   2 classes: 'No', 'Yes' 
+    ## 
+    ## Pre-processing: centered (40), scaled (40) 
+    ## Resampling: Cross-Validated (5 fold) 
+    ## Summary of sample sizes: 98, 98, 98, 97, 97 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   iter  logLoss  
+    ##   1     0.6404063
+    ##   2     0.6628140
+    ##   3     0.9038585
+    ## 
+    ## logLoss was used to select the optimal model using the smallest value.
+    ## The final value used for the model was iter = 1.
+
+``` r
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted5 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(log_tr, test),
+             predict(log_tr, test, type="prob"))
+
+#calculate the log-loss
+
+e <- mnLogLoss(predicted5, lev = levels(predicted5$obs))
+```

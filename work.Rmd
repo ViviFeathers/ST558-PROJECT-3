@@ -8,7 +8,7 @@ output:
     toc_depth: 2
     df_print: tibble
 params:
-    Education: "6"
+    Education: "1"
 ---
 
 ```{r setup, include=FALSE}
@@ -29,6 +29,7 @@ library(GGally)
 library(devtools)
 library(leaps)
 library(glmnet)
+library(RWeka)
 
 
 diabetes <- read_csv(file = "diabetes_binary_health_indicators_BRFSS2015.csv")
@@ -66,7 +67,7 @@ diabetes
 
 diabetes_sub <- diabetes %>% 
 
-                   filter(Education == "6")
+                   filter(Education == "1")
 
 diabetes_sub
 ```
@@ -256,7 +257,7 @@ predicted <- data.frame(obs=test$diabetes_dx,
              predict(full_log, test, type="prob"))
 
 #calculate the log-loss
-mnLogLoss(predicted, lev = levels(predicted$obs))
+a <- mnLogLoss(predicted, lev = levels(predicted$obs))
 ```
 
 ### Model two
@@ -281,7 +282,7 @@ predicted2 <- data.frame(obs=test$diabetes_dx,
              predict(inter_log, test, type="prob"))
 
 #calculate the log-loss
-mnLogLoss(predicted2, lev = levels(predicted2$obs))
+b <- mnLogLoss(predicted2, lev = levels(predicted2$obs))
 ```
 
 ### Model three
@@ -307,11 +308,19 @@ predicted3 <- data.frame(obs=test$diabetes_dx,
              predict(poly_log, test, type="prob"))
 
 #calculate the log-loss
-
-mnLogLoss(predicted3, lev = levels(predicted3$obs))
+c <- mnLogLoss(predicted3, lev = levels(predicted3$obs))
 ```
 
-From the result we can tell, the third model has the lowest log-loss value, thus, the model with polynomial term for numeric variables is the best logistic regression model for predicting diabetes diagnosis. 
+## Model selection for logistic regression 
+Now we have log-loss returned from 3 logistic regression models, we want to pick the one with the lowest log-loss value. In below code, we will compare their log-loss and pick the corresponding one with the lowest log-loss value.
+
+```{r pick1}
+log_pick <- data.frame(logloss_value = c(a, b, c), model = c("Logistic regression model one", "Logistic regression model two", "Logistc regression model three"))
+log_best <- log_pick[which.min(log_pick$logloss_value),]
+log_best
+```
+
+From the result we can tell, the `r log_best$model` has the lowest log-loss value (`r log_best$logloss_value`), thus, the `r log_best$model` is the best logistic regression model for predicting diabetes diagnosis. 
 
 ## Random forest
 The next model we will fit is a tree based model called random forest. This model is made up of multiple decision trees which are non-parametric supervised learning method and used for classification and regression. The goal of decision tree is to create a model that predicts the value of a target variable by splitting the predictor into regions with different predictions for each region. A random forest utilizes the "bootstrap" method to takes repeatedly sampling with replacement, fits multiple decision trees with a random subset of predictors, then returns the average result from all the decision trees.
@@ -322,5 +331,56 @@ Now we can set up a random forest model for our data. we will still use the `tra
 is where we tell the model how many predictor variables to grab per bootstrap sample. The `trainControl` function within the `trControl` option 
 will be used for cross-validation with 5 folds for model selection. After the best model is picked, use the `predict` function to apply it on the test data set and merge the predicted results with the test set's true response. Lastly, use the `mnLogLoss` function to compare their performance with a log-loss method. 
 
+```{r ran, cache = TRUE}
+ran_for <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income, 
+                data = train,
+                method = "rf",
+                metric="logLoss",
+                preProcess = c("center", "scale"),
+                tuneGrid = data.frame(mtry = c(18:20)),
+                trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+ran_for
 
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted4 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(ran_for, test),
+             predict(ran_for, test, type="prob"))
+
+#calculate the log-loss
+
+d <- mnLogLoss(predicted4, lev = levels(predicted4$obs))
 ```
+
+## Logistic model tree
+There is one classification model called logistic model tree, it combines logistic regression and decision tree -- instead of having constants at leaves for prediction as the ordinary decision trees, a logistic model tree has logistic regression models at its leaves to provide prediction locally. 
+The initial tree is built by creating a standard classification tree, and afterwards building a logistic regression model at every node trained on the set of examples at that node. Then, we further split a node and want to build the logistic regression function at one of the child nodes. Since we have already fit a logistic regression at the parent node, it is reasonable to use it as a basis for fitting the logistic regression at the child. We expect that the parameters of the model at the parent node already encode ‘global’ influences of some attributes on the class variable; at the child node, the model can be further refined by taking into account influences of attributes that are only valid locally, i.e. within the set of training
+examples associated with the child node.
+
+The logistic model tree is fitted by the LogitBoost algorithm which iteratively changes the logistic regression at chile node to improve the fit to the data by changing one of the coefficients in the linear function or introducing a new variable/coefficient pair. At some point, adding more variables does not increase the accuracy of the model, but splitting the instance space and refining the logistic models locally in the two subdivisions created
+by the split might give a better model. After splitting a node we can continue running LogitBoost iterations for fitting the logsitc regression model to the response variables of the training examples at the child node. 
+
+Thus, we tune logistic model tree by giving iteration number. For our training set, we use the `LMT` method in `train` function and set the iteration number to 1 to 3.
+```{r test, cache = TRUE}
+log_tr <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income, 
+                data = train,
+                method = "LMT",
+                metric="logLoss",
+                preProcess = c("center", "scale"),
+                tuneGrid = data.frame(iter = c(1:3)),
+                trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
+log_tr
+
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted5 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(log_tr, test),
+             predict(log_tr, test, type="prob"))
+
+#calculate the log-loss
+
+e <- mnLogLoss(predicted5, lev = levels(predicted5$obs))
+```
+
