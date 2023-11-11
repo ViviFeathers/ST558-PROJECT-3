@@ -101,7 +101,7 @@ diabetes
 
 diabetes_sub <- diabetes %>% 
 
-                   filter(Education == "6")
+                   filter(Education == "1")
 
 diabetes_sub
 ```
