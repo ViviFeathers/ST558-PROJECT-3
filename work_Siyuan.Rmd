@@ -1,0 +1,299 @@
+---
+title: "Finding correlations to predict occurance of diabetes through clinical predictors"
+author: "Siyuan"
+date: "2023-11-11"
+output: github_document
+---
+
+# Introduction
+
+First, we need to apply the packages to be used:
+
+```{r}
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(plyr)
+library(scales)
+library(GGally)
+library(gridExtra)
+diabetes <- read_csv("C:/NCSU/Statistics/ST558/Project 3/diabetes_binary_health_indicators_BRFSS2015.csv")
+```
+
+Now we imported the dataset and wanted to check what is inside
+
+```{r}
+head (diabetes)
+str(diabetes)
+summary(diabetes)
+```
+
+# Data
+
+There are 22 variables.
+The variable named "Diabetes_binary" has the value of either 0 or 1, which indicates whether a specific subject has been diagnosed as having diabetes or not.
+It should be used as the response vector.
+All variables are coded as numeric variables, but obviously a majority of those variables are actually factor variables.
+Next we need to transform those variables into factors to better manipulate them.
+
+```{r}
+diabetes<-diabetes%>%mutate_at(vars(Diabetes_binary, HighBP, HighChol, CholCheck, Smoker, Stroke, HeartDiseaseorAttack,PhysActivity, Fruits, Veggies, HvyAlcoholConsump, AnyHealthcare, NoDocbcCost, GenHlth,DiffWalk, Sex, Age, Education, Income), as.factor)
+str(diabetes)
+```
+
+Now all variables have been adjusted.
+Before doing the actual exploratory data analysis, we wanted to focus on only one education level just to ease the workload for computing.
+Merge Education level 1 and 2 into a new Education level 1
+
+```{r}
+diabetes_edumerge<-diabetes%>%mutate(Edu=if_else(diabetes$Education==2,1,
+                                                 if_else(diabetes$Education==1,1,
+                                                         if_else(diabetes$Education==3,3,
+                                                                 if_else(diabetes$Education==4,4,
+                                                                         if_else(diabetes$Education==5,5,6))))))
+diabetes_edumerge<-diabetes_edumerge%>%mutate_at(vars(Edu), as.factor)
+diabetes_Edu1<-diabetes_edumerge%>%filter(Edu==1)
+```
+
+# Summarization
+
+Let's make some categorical data tables to explore the data
+
+```{r}
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$PhysActivity)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$Fruits)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$Veggies)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$PhysHlth)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$MentHlth)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$GenHlth)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$Income)
+table(diabetes_Edu1$Diabetes_binary,diabetes_Edu1$HvyAlcoholConsump)
+```
+
+## BAR PLOTS
+
+It looks like diabetes incidence is positively correlated with PhysHlth, MentHlth and GenHlth, negatively corrlated with PhysActivity, Income and suprisingly, HvyAlcoholConsump and weakly assoiciated with Fruit and Veggie consumpution.# We decided to make barplot for each of them and put them together in the same grid.
+
+```{r, fig.show='hide'}
+PHlthplot<-ggplot(diabetes_Edu1,aes(x=PhysHlth,fill=Diabetes_binary))+
+  geom_density(adjust=1,alpha=0.5)+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))+
+  labs(x="Number of days physical health not good")
+MHlthplot<-ggplot(diabetes_Edu1,aes(x=MentHlth,fill=Diabetes_binary))+
+  geom_density(adjust=1,alpha=0.5)+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))+
+  labs(x="Number of days mental health not good")
+Physplot<-ggplot(diabetes_Edu1,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Fruitplot<-ggplot(diabetes_Edu1,aes(x=Fruits))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Fruit lover?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Veggieplot<-ggplot(diabetes_Edu1,aes(x=Veggies))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Veggies eater?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+GHlthplot<-ggplot(diabetes_Edu1,aes(x=GenHlth))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="General Health Condition")+
+  scale_x_discrete(labels=c("E","VG", "G", "F", "P"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Incomeplot<-ggplot(diabetes_Edu1,aes(x=Income))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Annual Household Income level")+
+  scale_x_discrete(labels=c("1","2", "3","4", "5","6","7", "8"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Alcoholplot<-ggplot(diabetes_Edu1,aes(x=HvyAlcoholConsump))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Heavy Drinker?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+```
+
+It would be very curbumsome to view each graph indenpendently, so put them in a tile
+
+```{r}
+grid.arrange(Physplot,Fruitplot,Veggieplot,GHlthplot,Alcoholplot,Incomeplot,PHlthplot,MHlthplot,ncol=3)
+```
+
+It is a bit surprising to me to see eating more fruit and veggies has little impact on one's chance to get diabetes.
+Split the data according to Fruit/veggie
+
+```{r,fig.show='hide'}
+diabetes_Edu1_nofruit<-diabetes_Edu1%>%filter(Fruits=="0")
+diabetes_Edu1_yesfruit<-diabetes_Edu1%>%filter(Fruits=="1")
+diabetes_Edu1_noveggie<-diabetes_Edu1%>%filter(Veggies=="0")
+diabetes_Edu1_yesveggie<-diabetes_Edu1%>%filter(Veggies=="1")
+Physnofruitplot<-ggplot(diabetes_Edu1_nofruit,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Fruit hater")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Physyesfruitplot<-ggplot(diabetes_Edu1_yesfruit,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Fruit lover")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Physnoveggieplot<-ggplot(diabetes_Edu1_noveggie,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Veggie hater")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Physyesveggieplot<-ggplot(diabetes_Edu1_yesveggie,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Veggie lover")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+```
+
+```{r}
+grid.arrange(Physnofruitplot,Physyesfruitplot,Physnoveggieplot,Physyesveggieplot)
+```
+
+## CORRELATION PLOTS
+
+Obviously Fruit/Veggie+Physical activity may prevent diabetes, at least among people of lower education.Howl-ever, people who are fruit and veggie lovers while keeping physically active maybe likely to have more income, which also confound the factors.
+To straighten this out, and also for the purpose of modelling, we need to find a way to characterize the correlation among variables, especially those categorical ones.
+Need to transform the data set back into numeric dataframe.
+
+```{r}
+diabetes_Edu1_n<-diabetes_Edu1%>%mutate_at(vars(Diabetes_binary, HighBP, HighChol, CholCheck, Smoker, Stroke, HeartDiseaseorAttack,PhysActivity, Fruits, Veggies, HvyAlcoholConsump, AnyHealthcare, NoDocbcCost, GenHlth,DiffWalk, Sex, Age, Education, Income, Edu),as.numeric)%>%select(-Education, -Edu)
+Correlation<-cor(diabetes_Edu1_n)
+library(corrplot)
+corrplot(Correlation,type="upper",method="color", addrect=2, tl.cex=0.6, cl.cex=0.6,tl.pos="lt")
+corrplot(Correlation,type="lower",method="number",add=TRUE, diag=FALSE, tl.pos="n",
+         number.cex = 0.8, number.digits = 1)
+```
+
+From the correlation plot, we could see that diabetes occurance is not strongly associated with above mentioned factors, except for general health status and physical health.
+Across all variables, the most strongly postive associations ocurred between PhysHlth and GenHlth, which explains for itself.
+The factor that correlates with Diabetes status is High BP and bad General Health.
+
+# Modelling
+
+## PREPROCESSING DATA
+
+Before modeling, we need to divide the dataset into training and testing dataset.
+
+```{r}
+library(caret)
+library(glmnet)
+library(forecast)
+set.seed(20)
+index <- createDataPartition(diabetes_Edu1$Diabetes_binary, p = 0.70, list = FALSE)
+train <- diabetes_Edu1[index, ]
+test <- diabetes_Edu1[-index, ]
+```
+
+## LASSO LOGISTIC REGRESSION
+
+Compared with basic logistric regression, LASSO logistic regression model help with the selection of variables for prediction without prior knowledge.
+For this data set, the correlation between diabetes and its predictors are relatively weak, so try the LASSO method to help select variables.
+LASSO regression model uses a panelty based method to panelty against using irrelavant predictors and also could prevent over-fitting because LASSO could reduce the "weight" for each predictor.
+Using the caret package to fit a model to the training set.
+Try the Lasso logistric regression
+
+```{r, warning=FALSE}
+lasso_log_reg<-train(Diabetes_binary~.,
+                     data=train,
+                     method="glmnet",
+                     preProcess=c("center","scale"),
+                     trControl=trainControl(method="cv"),
+                     tuneGrid = expand.grid(alpha = seq(0,1,by =0.1),
+                                            lambda = seq (0,1,by=0.1)))
+head(lasso_log_reg$results)
+lasso_log_reg$bestTune
+```
+
+When alpha = 0.3, lambda =0, we could get the best fit for the training data set using plot(lasso_log_reg).
+The graph demonstrates that the max accuracy is observed for alpha =0.1, given choosing lambda = 0.0024742657.
+Now we could calculate the accuracy for the test dataset using the same settings.
+
+```{r}
+fitted_lasso<-predict(lasso_log_reg,
+                      newdata = test,
+                      type = "raw")
+confusionMatrix(data=test$Diabetes_binary,reference=fitted_lasso)
+```
+
+So it turned out not really a good prediction method: its accuracy rate is worse than "No infomation rate", although the best parameters for lasso regression tree was selected.\
+
+## CLASSIFICATION TREE MODEL
+
+At the same time, classification tree method is very straight-forward and easy to read.Classification tree is try to classify the predictors into differnt "spaces" and within each space further classification could be made based other predictors to split up even smaller spaces and so on.
+In the end, give a certain response value within each "space".This method is very straight-forward for users and sometimes generates pretty accurate predictions.
+
+```{r}
+library(tree)
+diabetes_tree<-tree(Diabetes_binary~.,data=train,split="deviance")
+diabetes_tree
+summary(diabetes_tree)
+plot(diabetes_tree)
+text(diabetes_tree)
+```
+
+This tree give all classification level of diabetes to no.
+Use this tree to predict.
+
+```{r}
+fullpred<-predict(diabetes_tree,dplyr::select(test,-"Diabetes_binary"),type="class")
+fullTbl<-table(data.frame(fullpred,test[,"Diabetes_binary"]))
+fullTbl
+sum(diag(fullTbl)/sum(fullTbl))
+```
+
+In the test dataset it gives all prediction to non-diabetes, as predicted.
+Try Gini methods.
+
+```{r}
+diabetes_tree2<-tree(Diabetes_binary~.,data=train, split = "gini")
+summary(diabetes_tree2)
+plot(diabetes_tree2)
+text(diabetes_tree2,pretty=0,cex=0.4)
+```
+
+This tree is HUGE, may need pruning.
+It is great to see misclassification error rate is low.
+Pruning can also prevent over-fitting.
+
+```{r}
+Prune_diabetes_tree2<-cv.tree(diabetes_tree2,FUN=prune.tree)
+Prune_diabetes_tree2
+plot(Prune_diabetes_tree2$size,Prune_diabetes_tree2$dev,type="b")
+```
+
+Looks like deviation is the smallest when tree size = 3.
+Use size =3 as the best option for tree size.
+Then we need to prune trees using the parameter of size.
+
+```{r}
+Prune_final_diabetes_tree2<-prune.misclass(diabetes_tree2,best=3)
+plot(Prune_final_diabetes_tree2)
+text(Prune_final_diabetes_tree2)
+summary(Prune_final_diabetes_tree2)
+```
+
+Why the misclassification tree increased?
+
+```{r}
+fullpred2<-predict(diabetes_tree2,dplyr::select(test,-"Diabetes_binary"),type="class")
+prunepred2<-predict(Prune_final_diabetes_tree2,dplyr::select(test,-"Diabetes_binary"),type="class")
+fullTbl2<-table(data.frame(fullpred2,test[,"Diabetes_binary"]))
+fullTbl2
+sum(diag(fullTbl2)/sum(fullTbl2))
+pruneTbl2<-table(data.frame(prunepred2,test[,"Diabetes_binary"]))
+pruneTbl2
+sum(diag(pruneTbl2)/sum(pruneTbl2))
+```
+
+Although the misclassification increased after pruning, the misclassfication rate on the prediction dataset actually decreased.
