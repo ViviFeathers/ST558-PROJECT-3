@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE
 
 
 # Data
-First of all, We will call the required packages and read in the "diabetes_binary_health_indicators_BRFSS2015.csv" file. According to the [data dictionary](https://www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset/?select=diabetes_binary_health_indicators_BRFSS2015.csv), there are 22 columns and most of them are categorical variables, we will convert them to factors and replace the original variables in the code below using a `as.factor` function. Lastly, we will use a `filter` function and subset the "diabetes" data set corresponding to the `params$Education` value in YAML header for R markdown automation purpose.
+First of all, We will call the required packages and read in the "diabetes_binary_health_indicators_BRFSS2015.csv" file. According to the [data dictionary](https://www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset/?select=diabetes_binary_health_indicators_BRFSS2015.csv), there are 22 columns and most of them are categorical variables, we will convert them to factors and replace the original variables in the code below using the `as.factor` function. Additionally, since Education level one has very a few subjects, we will combine Education level 1 and 2 then replace the original Education variable using a series of `if_else` functions. Lastly, we will utilize a `filter` function and subset the "diabetes" data set corresponding to the `params$Education` value in YAML header for R markdown automation purpose.
 
 ```{r read}
 library(tidyverse)
@@ -55,9 +55,15 @@ diabetes$GenHlth <- as.factor(diabetes$GenHlth)
 diabetes$DiffWalk <- as.factor(diabetes$DiffWalk)
 diabetes$Sex <- as.factor(diabetes$Sex)
 diabetes$Age <- as.factor(diabetes$Age)
-diabetes$Education  <- as.factor(diabetes$Education)
 diabetes$Income <- as.factor(diabetes$Income)
-diabetes              
+
+# combine level 1 and 2 of education
+diabetes$Education  <- as.factor(if_else(diabetes$Education == 1, 1, 
+                                    if_else(diabetes$Education == 2, 1,
+                                       if_else(diabetes$Education == 3, 2, 
+                                           if_else(diabetes$Education == 4, 3,
+                                                    if_else(diabetes$Education == 5, 4,
+                                                           if_else(diabetes$Education == 6, 5, NA)))))))
 
 # subset data set based on parameter in YAML header
 
@@ -67,7 +73,7 @@ diabetes
 
 diabetes_sub <- diabetes %>% 
 
-                   filter(Education == "1")
+                   filter(Education == "3")
 
 diabetes_sub
 ```
@@ -219,9 +225,7 @@ From the formula we can tell, the lower log-loss is, the better the model perfor
 The reason that log-loss is preferred to accuracy is: For accuracy, model returns 1 if predicted probability is > .5 otherwise 0. We could get some prediction probabilities very close to 0.5, but are converted to 1 and 0 which actually match with the true results. Such model could have 100% accuracy but their prediction probabilities are at board line of being wrong. If we use accuracy for model selection, we will keep a bad model. On the other hand, log-loss calculate how far away the prediction probabilities are from the true values, and the log-loss of such model will be high, which reveal the model's true performance. Thus, log-loss is more reliable and accurate for model selection.
 
 ## Logistic regression
-The first model we are fitting is logistic regression, which is a generalized linear model that models the probability of an event by calculating the log-odds for the event based on the linear combination of one or more independent variables. The most common logistic regression has a 
-single binary variable as the response, usually the two val
-ues are coded as "0" and "1". 
+The first model we are fitting is logistic regression, which is a generalized linear model that models the probability of an event by calculating the log-odds for the event based on the linear combination of one or more independent variables. The most common logistic regression has a single binary variable as the response, usually the two values are coded as "0" and "1". 
 
 In logistic regression, the dependent variable is a logit, which is the natural log of the odds and assumed to be linearly related to X as the formula below: 
 
@@ -233,7 +237,9 @@ In our data set, logistic regression models are more suitable for our binary res
 2.  One of the assumptions of regression is that the variance of Y is constant across values of X (homoscedasticity). This can not be the case with a binary variable.  
 3.  The significance testing of the b weights rest upon the assumption that errors of prediction (Y-Y') are normally distributed. Because Y only takes the values 0 and 1, this assumption is pretty hard to justify.  
 
-Now, let's fit 3 logistic regression models with the `train` function on the training data set, and use cross-validation with 5 folds for model selection. After the best model is picked, use the `predict` function to apply it on the test data set and merge the predicted results with the test set's true response. Lastly, use the `mnLogLoss` function to compare their performance with a log-loss method. 
+Now, let's fit 3 logistic regression models with the `train` function on the training data set, and use cross-validation with 5 folds for model selection. After the best model is picked, use the `predict` function to apply it on the test data set and merge the predicted results with the test set's true response. We will use the `mnLogLoss` function to evaluate their performance with a log-loss method. 
+
+After log-loss values get calculated for all three models, we will create a data frame with all the log-loss values and their corresponding model names, then return the row with the lowest log-loss value by using the `which.min` function. Lastly, we will insert the model name as an inline R code into the conclusion.
 
 ### Model one
 We will include all the low level variables in our first model:
@@ -339,7 +345,7 @@ ran_for <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + St
                 method = "rf",
                 metric="logLoss",
                 preProcess = c("center", "scale"),
-                tuneGrid = data.frame(mtry = c(18:20)),
+                tuneGrid = data.frame(mtry = c(6:8)),
                 trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
 ran_for
 
@@ -384,3 +390,17 @@ predicted5 <- data.frame(obs=test$diabetes_dx,
 e <- mnLogLoss(predicted5, lev = levels(predicted5$obs))
 ```
 
+# Final model selection
+Now, best models are chosen for each model type, we are going to compare all six models log-loss values from running on the test set then pick the final winner. Just like previous step, we will create a data frame with all six log-loss values and their corresponding model names, then return the row with the lowest log-loss value by using the `which.min` function. Finally, we will insert the model name as an inline R code into the conclusion.
+
+```{r final}
+final_pick <- data.frame(logloss_value = c(d, e), model = c("Random forest model", "Logistic model tree"))
+#append with previous best logistic model
+final_pick <- rbind(final_pick, log_best)
+final_pick
+#return the smallest log-loss model
+final_best <- final_pick[which.min(final_pick$logloss_value),]
+final_best
+```
+
+Finally, after comparing all six models' log-loss values fitting on the test set, the `r final_best$model` has the lowest log-loss value (`r final_best$logloss_value`), thus, the `r final_best$model` is the best model for predicting diabetes diagnosis. 
