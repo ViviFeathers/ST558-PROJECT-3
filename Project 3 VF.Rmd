@@ -1,6 +1,6 @@
 ---
 title: "Project 3"
-author: "Vivi"
+author: "Vivi Feathers & Siyuan Su"
 date: "2023-11-02"
 output: 
   github_document:
@@ -16,7 +16,20 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE
 ```
 
 # Introduction
+The data set we'll be exploring is from The Behavioral Risk Factor Surveillance System (BRFSS), a health-related telephone survey that is collected annually by the CDC. The response is a binary variable that has 2 classes. 0 is for no diabetes, and 1 is for pre-diabetes or diabetes. There are also 21 variables collected in the data set that might have some association with the response.
 
+In order to learn the distribution of those variables and their relationship with each other, we will conduct a series of data exploratory analysis and generate contingency tables, summary tables, chi-square tests, bar plots, density plots and correlation chart.
+
+After getting some general understanding about the data, we are planning on spitting the data set into training and test set, fitting some prediction models on the training set with different model types and turning parameters, also utilizing the cross-validation method for model selection, and log-loss for model performance evaluation. Our final goal is to find the model that returns the lowest log-loss value when applied on the test set for prediction.
+
+The model types that we will investigate are:
+
+1.  Logistic regression model.  
+2.  LASSO logistic regression model.  
+3.  Classification tree model.  
+4.  Random forest model.  
+5.  Logistic model tree.  
+6.  CART tree model.
 
 # Data
 First of all, We will call the required packages and read in the "diabetes_binary_health_indicators_BRFSS2015.csv" file. According to the [data dictionary](https://www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset/?select=diabetes_binary_health_indicators_BRFSS2015.csv), there are 22 columns and most of them are categorical variables, we will convert them to factors and replace the original variables in the code below using the `as.factor` function. Additionally, since Education level one has very a few subjects, we will combine Education level 1 and 2 then replace the original Education variable using a series of `if_else` functions. Lastly, we will utilize a `filter` function and subset the "diabetes" data set corresponding to the `params$Education` value in YAML header for R markdown automation purpose.
@@ -74,7 +87,7 @@ diabetes$Education  <- as.factor(if_else(diabetes$Education == 1, 1,
 
 diabetes_sub <- diabetes %>% 
 
-                   filter(Education == "5")
+                   filter(Education == "1")
 
 diabetes_sub
 ```
@@ -187,8 +200,10 @@ t.test(BMI ~ Diabetes_binary, data = diabetes_sub, alternative = "two.sided", va
 
 The summary table gives us the center (mean and median) and spread (standard_deviation, variance, q1 and q3) of BMI in each diagnosis group. The density plot shows the distribution of BMI in each diagnosis group, we can estimate the means and standard deviations, also visualize their differences. Lastly, the two sample t-test returns the 95% confidence interval of mean difference, and the t statistic, degree of freedom and p-value as t-test result, we need to see if the p-value is smaller than 0.05 to decide whether we will reject the null hypothesis (true difference in means between two diagnosis is equal to 0).
 
-##
-It looks like diabetes incidence is positively correlated with PhysHlth, MentHlth and GenHlth, negatively corrlated with PhysActivity, Income and suprisingly, HvyAlcoholConsump and weakly assoiciated with Fruit and Veggie consumpution.# We decided to make barplot for each of them and put them together in the same grid.
+## Grid of bar and density plots
+Beside above 3 variables that we investigated individually, we still want to have a brief concept about the distribution of other variables that were not mentioned that often in scientific articles about their association with diabetes diagnosis. Compared with contingency tables, bar/density plots are often visually more appealing and easier to understand.
+
+In order to create bar plot for visualizing the distribution of diabetic people in each category of variables, we need to use the `ggplot` package, and the `geom_bar` function will be applied. For numeric variable, the `geom_density` function will be used for displaying their distributions. As previous, Function `labs` were used to input the label for each plot, and `scale_x_discrete` function was used to create label for each category on the x-axis, meanwhile `scale_fill_discrete` function was used to provide label in the legend.
 
 ```{r, fig.show='hide'}
 PHlthplot<-ggplot(diabetes_sub,aes(x=PhysHlth,fill=Diabetes_binary))+
@@ -231,14 +246,14 @@ Alcoholplot<-ggplot(diabetes_sub,aes(x=HvyAlcoholConsump))+
   scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
 ```
 
-It would be very curbumsome to view each graph indenpendently, so put them in a tile
+It would be very cumbersome to view each graph independently, so we are putting them in a tile with the `grid.arrange` function.
 
-```{r  fig.width = 6, fig.height = 6}
+```{r  fig.width = 10 , fig.height = 6}
 grid.arrange(Physplot,Fruitplot,Veggieplot,GHlthplot,Alcoholplot,Incomeplot,PHlthplot,MHlthplot,ncol=3)
 ```
 
-It is a bit surprising to me to see eating more fruit and veggies has little impact on one's chance to get diabetes.
-Split the data according to Fruit/veggie
+The contrasting color red (no diabetes) and blue (have diabetes) provides a straightforward way to visualize the how the ratio of people who have diabetes are affected by the value of variables.
+Note that different variables may have interactions, if interested we could further split the value of a variable by another variable, just like what will be shown in the next graph.
 
 ```{r,fig.show='hide'}
 diabetes_Edu1_nofruit<-diabetes_sub%>%filter(Fruits=="0")
@@ -271,17 +286,16 @@ Physyesveggieplot<-ggplot(diabetes_Edu1_yesveggie,aes(x=PhysActivity))+
   scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
 ```
 
-```{r  fig.width = 6, fig.height = 6}
+```{r  fig.width = 8, fig.height = 6}
 grid.arrange(Physnofruitplot,Physyesfruitplot,Physnoveggieplot,Physyesveggieplot)
 ```
 
-## CORRELATION PLOTS
+This plot panel showed the effect of physical activity on diabetes status in people who eat/do not eat fruits or veggies. Compared with diabetes patients, is there higher ratio of physically active people in the non-diabetes group that are also fruit & vegetable lovers?
 
-Obviously Fruit/Veggie+Physical activity may prevent diabetes, at least among people of lower education.Howl-ever, people who are fruit and veggie lovers while keeping physically active maybe likely to have more income, which also confound the factors.
-To straighten this out, and also for the purpose of modelling, we need to find a way to characterize the correlation among variables, especially those categorical ones.
-Need to transform the data set back into numeric dataframe.
+## Correlation plot
+We are also interested in the correlations among all the predictors and response, investigating correlations is also important for model building. We will use the `corrplot` function from the package `corrplot` to visualize the correlation efficiency.
 
-```{r  fig.width = 6, fig.height = 6}
+```{r  fig.width = 10, fig.height = 6}
 diabetes_Edu1_n<-diabetes_sub%>%mutate_at(vars(Diabetes_binary, HighBP, HighChol, CholCheck, Smoker, Stroke, HeartDiseaseorAttack,PhysActivity, Fruits, Veggies, HvyAlcoholConsump, AnyHealthcare, NoDocbcCost, GenHlth,DiffWalk, Sex, Age, Education, Income),as.numeric)%>%select(-Education, -diabetes_dx)
 Correlation<-cor(diabetes_Edu1_n)
 library(corrplot)
@@ -290,19 +304,17 @@ corrplot(Correlation,type="lower",method="number",add=TRUE, diag=FALSE, tl.pos="
          number.cex = 0.8, number.digits = 1)
 ```
 
-From the correlation plot, we could see that diabetes occurance is not strongly associated with above mentioned factors, except for general health status and physical health.
-Across all variables, the most strongly postive associations ocurred between PhysHlth and GenHlth, which explains for itself.
-The factor that correlates with Diabetes status is High BP and bad General Health.
+The pairwise correlation efficiency were shown using different color, with blue meaning positive correlation and orange/red meaning negative correlation, the darker the color is, the stronger the correlation is. Occasionally there will be several variables that has high correlation with each other.
 
 ## Correlation among numeric variables
 Before fitting any model, we also want to test the correlation among numeric variables, in case there is collinearity that diminishes our ability to determine which variables are responsible for change in the response variable. For this reason, we should determine correlations between all variables and consider removing ones that are problematic. We can do this by creating a correlation plot with `ggpairs()` from the `GGally` package. 
 
-```{r graphics, fig.width = 6, fig.height = 6}
+```{r graphics, fig.width = 8, fig.height = 6}
 x <- diabetes_sub[, c(5, 16, 17)] 
 GGally::ggpairs(x)
 ```
 
-Let's look for the pairs that have correlation coefficient higher than 0.4. If we do find such pairs, we need to refer to the relationship between each variable and the response, as well as some background knowledge (may do a literature review), in order to decide which variable will be include into the models.
+Let's look for the pairs that have correlation coefficient higher than 0.4. If we do find such pairs, we need to refer to the correlations between each variable and the response & other predictors, as well as some background knowledge (may do a literature review), in order to decide which variable will be include into the models.
 
 # Modeling
 Since we gained some basic understanding of the data, we can now fit different models and select the best one for prediction. 
@@ -425,7 +437,7 @@ predicted3 <- data.frame(obs=test$diabetes_dx,
 c <- mnLogLoss(predicted3, lev = levels(predicted3$obs))
 ```
 
-## Model selection for logistic regression 
+### Model selection for logistic regression 
 Now we have log-loss returned from 3 logistic regression models, we want to pick the one with the lowest log-loss value. In below code, we will compare their log-loss and pick the corresponding one with the lowest log-loss value.
 
 ```{r pick1}
@@ -435,6 +447,75 @@ log_best
 ```
 
 From the result we can tell, the `r log_best$model` has the lowest log-loss value (`r log_best$logloss_value`), thus, the `r log_best$model` is the best logistic regression model for predicting diabetes diagnosis. 
+
+## LASSO logistic regression
+LASSO, standing for Least Absolute Shrinkage and Selection Operator, is a popular technique used in statistical modeling and machine learning to estimate the relationships between variables and make prediction.
+
+The objective LASSO regression is to find the values of the coefficients that minimize the sum of the squared differences between the predicted values and the actual values, while also minimizing the L1 regularization term, which is an additional penalty term based on the absolute values of the coefficients.
+
+Compared with basic logistic regression, LASSO logistic regression model help with the selection of variables for prediction without prior knowledge.LASSO regression model uses a penalty based method to penalize against using irrelevant predictors and also could prevent over-fitting because LASSO could reduce the "weight" for each predictor. In addition, it could be used to automate the variable selection process.
+
+Next, we will use the `caret` package to fit a model to the training set, we will assign `glmnet` as the model type and use log-loss to evaluate the model performance. 
+
+```{r, warning=FALSE}
+lasso_log_reg<-train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income,
+                     data=train,
+                     method="glmnet",
+                     metric="logLoss",
+                     preProcess=c("center","scale"),
+                     trControl=trainControl(method="cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss),
+                     tuneGrid = expand.grid(alpha = seq(0,1,by =0.1),
+                                            lambda = seq (0,1,by=0.1)))
+head(lasso_log_reg$results)
+lasso_log_reg$bestTune
+
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted6 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(lasso_log_reg, test),
+             predict(lasso_log_reg, test, type="prob"))
+
+#calculate the log-loss
+f <- mnLogLoss(predicted6, lev = levels(predicted6$obs))
+```
+
+## Classifcation tree model
+classification tree is also a very straight-forward and easy to read model. By fitting a classification tree models, we can separate the predictors into different "spaces" and within each space, further split could be made based off other predictors, to generate even smaller region and so on. Classification tree model makes prediction for certain test data by taking the higher voted value from the corresponding region.
+
+Compared with linear regression model or generalized linear model, tree methods has several advantages:
+
+1.  No variable selection is needed to perform manually.  
+2.  Data preprocessing: no normalization/scaling needed.  
+3.  A classification tree model is very intuitive and generally easier to understand.
+
+On the other hand, there are also significant drawbacks: 
+
+1.  A single classification tree model is inadequate for accurately predicting a response.  
+2.  Tree model takes a longer time to run compared with linear regression models.  
+3.  A small change in the data set can sometimes cause quite big changes in the classification tree structure.
+
+So there is no perfect prediction algorithm for all problems, we need to decide based on the data set and the prediction goal. The response we are looking at is a binary factor, so fitting a classification tree model here is suitable.
+
+```{r}
+class_tree<-train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income,
+                  data=train,
+                  method="rpart",
+                  metric="logLoss",
+                  preProcess=c("center","scale"),
+                  trControl=trainControl(method="cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss),
+                  tuneGrid = data.frame(cp = seq(0,1,by = 0.1)))
+class_tree
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted7 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(class_tree, test),
+             predict(class_tree, test, type="prob"))
+
+#calculate the log-loss
+g <- mnLogLoss(predicted7, lev = levels(predicted7$obs))
+```
 
 ## Random forest
 The next model we will fit is a tree based model called random forest. This model is made up of multiple decision trees which are non-parametric supervised learning method and used for classification and regression. The goal of decision tree is to create a model that predicts the value of a target variable by splitting the predictor into regions with different predictions for each region. A random forest utilizes the "bootstrap" method to takes repeatedly sampling with replacement, fits multiple decision trees with a random subset of predictors, then returns the average result from all the decision trees.
@@ -499,11 +580,38 @@ predicted5 <- data.frame(obs=test$diabetes_dx,
 e <- mnLogLoss(predicted5, lev = levels(predicted5$obs))
 ```
 
+## CART (Classification and Regression Tree)
+This is also another tree model available in the `caret` package, this model is very similar to classification tree model except that instead of using complex parameter (cp), this CART method uses the maximum depth of trees to tune the model.
+
+We will use `rpart2` as model type and `maxdepth` as the tuning parameter to fit a CART tree model as below:
+
+```{r}
+class_CART<-train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + Stroke + HeartDiseaseorAttack 
+                  + PhysActivity + Fruits + Veggies + HvyAlcoholConsump + AnyHealthcare + NoDocbcCost + GenHlth + MentHlth 
+                  + PhysHlth + DiffWalk + Sex + Age + Income, 
+                  data=train,
+                  method="rpart2",
+                  metric="logLoss",
+                  preProcess=c("center","scale"),
+                  trControl=trainControl(method="cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss),
+                  tuneGrid = data.frame(maxdepth = seq(3,30,by=1)))
+class_CART
+
+#apply the best model on the test set and merge the predicted results with the true response into one data frame
+predicted8 <- data.frame(obs=test$diabetes_dx,
+             pred=predict(class_CART, test),
+             predict(class_CART, test, type="prob"))
+
+#calculate the log-loss
+
+h <- mnLogLoss(predicted8, lev = levels(predicted8$obs))
+```
+
 # Final model selection
 Now, best models are chosen for each model type, we are going to compare all six models log-loss values from running on the test set then pick the final winner. Just like previous step, we will create a data frame with all six log-loss values and their corresponding model names, then return the row with the lowest log-loss value by using the `which.min` function. Finally, we will insert the model name as an inline R code into the conclusion.
 
 ```{r final}
-final_pick <- data.frame(logloss_value = c(d, e), model = c("Random forest model", "Logistic model tree"))
+final_pick <- data.frame(logloss_value = c(f, g, d, e, h), model = c("LASSO logistic regression model", "Classification tree model", "Random forest model", "Logistic model tree", "CART tree model"))
 #append with previous best logistic model
 final_pick <- rbind(final_pick, log_best)
 final_pick
