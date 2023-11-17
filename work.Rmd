@@ -8,7 +8,7 @@ output:
     toc_depth: 2
     df_print: tibble
 params:
-    Education: "1"
+    Education: "5"
 ---
 
 ```{r setup, include=FALSE}
@@ -30,13 +30,14 @@ library(devtools)
 library(leaps)
 library(glmnet)
 library(RWeka)
-
-
+library(gridExtra)
+library(readr)
+library(scales)
 diabetes <- read_csv(file = "diabetes_binary_health_indicators_BRFSS2015.csv")
 
 # for log-loss purpose, create a new variable and assign value as "YES" for the records have Diabetes_binary = 1 and 'NO' otherwise.
 diabetes <- diabetes %>%
-            mutate(diabetes_dx = as.factor(if_else(Diabetes_binary == 1, 'Yes', 'No')))
+            mutate(diabetes_dx = as.factor(if_else(Diabetes_binary == 1, "Yes", "No")))
 #use `as.factor` function to replace the original variables.
 diabetes$Diabetes_binary <- as.factor(diabetes$Diabetes_binary)
 diabetes$HighBP <- as.factor(diabetes$HighBP)
@@ -73,7 +74,7 @@ diabetes$Education  <- as.factor(if_else(diabetes$Education == 1, 1,
 
 diabetes_sub <- diabetes %>% 
 
-                   filter(Education == "3")
+                   filter(Education == "5")
 
 diabetes_sub
 ```
@@ -185,6 +186,113 @@ t.test(BMI ~ Diabetes_binary, data = diabetes_sub, alternative = "two.sided", va
 ```
 
 The summary table gives us the center (mean and median) and spread (standard_deviation, variance, q1 and q3) of BMI in each diagnosis group. The density plot shows the distribution of BMI in each diagnosis group, we can estimate the means and standard deviations, also visualize their differences. Lastly, the two sample t-test returns the 95% confidence interval of mean difference, and the t statistic, degree of freedom and p-value as t-test result, we need to see if the p-value is smaller than 0.05 to decide whether we will reject the null hypothesis (true difference in means between two diagnosis is equal to 0).
+
+##
+It looks like diabetes incidence is positively correlated with PhysHlth, MentHlth and GenHlth, negatively corrlated with PhysActivity, Income and suprisingly, HvyAlcoholConsump and weakly assoiciated with Fruit and Veggie consumpution.# We decided to make barplot for each of them and put them together in the same grid.
+
+```{r, fig.show='hide'}
+PHlthplot<-ggplot(diabetes_sub,aes(x=PhysHlth,fill=Diabetes_binary))+
+  geom_density(adjust=1,alpha=0.5)+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))+
+  labs(x="Number of days physical health not good")
+MHlthplot<-ggplot(diabetes_sub,aes(x=MentHlth,fill=Diabetes_binary))+
+  geom_density(adjust=1,alpha=0.5)+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))+
+  labs(x="Number of days mental health not good")
+Physplot<-ggplot(diabetes_sub,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Fruitplot<-ggplot(diabetes_sub,aes(x=Fruits))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Fruit lover?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Veggieplot<-ggplot(diabetes_sub,aes(x=Veggies))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Veggies eater?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+GHlthplot<-ggplot(diabetes_sub,aes(x=GenHlth))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="General Health Condition")+
+  scale_x_discrete(labels=c("E","VG", "G", "F", "P"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Incomeplot<-ggplot(diabetes_sub,aes(x=Income))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Annual Household Income level")+
+  scale_x_discrete(labels=c("1","2", "3","4", "5","6","7", "8"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Alcoholplot<-ggplot(diabetes_sub,aes(x=HvyAlcoholConsump))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  labs(x="Heavy Drinker?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+```
+
+It would be very curbumsome to view each graph indenpendently, so put them in a tile
+
+```{r  fig.width = 6, fig.height = 6}
+grid.arrange(Physplot,Fruitplot,Veggieplot,GHlthplot,Alcoholplot,Incomeplot,PHlthplot,MHlthplot,ncol=3)
+```
+
+It is a bit surprising to me to see eating more fruit and veggies has little impact on one's chance to get diabetes.
+Split the data according to Fruit/veggie
+
+```{r,fig.show='hide'}
+diabetes_Edu1_nofruit<-diabetes_sub%>%filter(Fruits=="0")
+diabetes_Edu1_yesfruit<-diabetes_sub%>%filter(Fruits=="1")
+diabetes_Edu1_noveggie<-diabetes_sub%>%filter(Veggies=="0")
+diabetes_Edu1_yesveggie<-diabetes_sub%>%filter(Veggies=="1")
+Physnofruitplot<-ggplot(diabetes_Edu1_nofruit,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Fruit hater")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Physyesfruitplot<-ggplot(diabetes_Edu1_yesfruit,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Fruit lover")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Physnoveggieplot<-ggplot(diabetes_Edu1_noveggie,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Veggie hater")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+Physyesveggieplot<-ggplot(diabetes_Edu1_yesveggie,aes(x=PhysActivity))+
+  geom_bar(aes(fill=(Diabetes_binary)))+
+  ggtitle("Veggie lover")+
+  labs(x="Physically Active?")+
+  scale_x_discrete(labels=c("No","Yes"))+
+  scale_fill_discrete(name="Diabetic?", label=c("No","Yes"))
+```
+
+```{r  fig.width = 6, fig.height = 6}
+grid.arrange(Physnofruitplot,Physyesfruitplot,Physnoveggieplot,Physyesveggieplot)
+```
+
+## CORRELATION PLOTS
+
+Obviously Fruit/Veggie+Physical activity may prevent diabetes, at least among people of lower education.Howl-ever, people who are fruit and veggie lovers while keeping physically active maybe likely to have more income, which also confound the factors.
+To straighten this out, and also for the purpose of modelling, we need to find a way to characterize the correlation among variables, especially those categorical ones.
+Need to transform the data set back into numeric dataframe.
+
+```{r  fig.width = 6, fig.height = 6}
+diabetes_Edu1_n<-diabetes_sub%>%mutate_at(vars(Diabetes_binary, HighBP, HighChol, CholCheck, Smoker, Stroke, HeartDiseaseorAttack,PhysActivity, Fruits, Veggies, HvyAlcoholConsump, AnyHealthcare, NoDocbcCost, GenHlth,DiffWalk, Sex, Age, Education, Income),as.numeric)%>%select(-Education, -diabetes_dx)
+Correlation<-cor(diabetes_Edu1_n)
+library(corrplot)
+corrplot(Correlation,type="upper",method="color", addrect=2, tl.cex=0.6, cl.cex=0.6,tl.pos="lt")
+corrplot(Correlation,type="lower",method="number",add=TRUE, diag=FALSE, tl.pos="n",
+         number.cex = 0.8, number.digits = 1)
+```
+
+From the correlation plot, we could see that diabetes occurance is not strongly associated with above mentioned factors, except for general health status and physical health.
+Across all variables, the most strongly postive associations ocurred between PhysHlth and GenHlth, which explains for itself.
+The factor that correlates with Diabetes status is High BP and bad General Health.
 
 ## Correlation among numeric variables
 Before fitting any model, we also want to test the correlation among numeric variables, in case there is collinearity that diminishes our ability to determine which variables are responsible for change in the response variable. For this reason, we should determine correlations between all variables and consider removing ones that are problematic. We can do this by creating a correlation plot with `ggpairs()` from the `GGally` package. 
@@ -343,9 +451,10 @@ ran_for <- train(diabetes_dx ~ HighBP + HighChol + CholCheck + BMI + Smoker + St
                   + PhysHlth + DiffWalk + Sex + Age + Income, 
                 data = train,
                 method = "rf",
+                ntree = 100,
                 metric="logLoss",
                 preProcess = c("center", "scale"),
-                tuneGrid = data.frame(mtry = c(6:8)),
+                tuneGrid = data.frame(mtry = c(5:15)),
                 trControl = trainControl(method = "cv", number = 5, classProbs=TRUE, summaryFunction=mnLogLoss))
 ran_for
 
