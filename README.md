@@ -14,23 +14,24 @@ In order to learn the distribution of those variables and their relationship wit
 After getting some general understanding about the data, we are planning on spitting the data set into training and test set, fitting some prediction models on the training set with different model types and turning parameters, also utilizing the cross-validation method for model selection, and log-loss for model performance evaluation. Our final goal is to find the model that returns the lowest log-loss value when applied on the test set for prediction.
 
 ## Packages
-The packages we used in our program are listed as below:
-`tidyverse`
-`ggplot2`
-`caret`
-`GGally`
-`devtools`
-`leaps`
-`glmnet`
-`RWeka`
-`gridExtra`
-`readr`
+The packages we used in our program are listed as below:  
+`tidyverse`  
+`ggplot2`  
+`caret`  
+`GGally`  
+`devtools`  
+`leaps`  
+`glmnet`  
+`RWeka`  
+`gridExtra`  
+`readr`  
 `scales`
 
 ## Automation code
 
 ## Links to the pages
 
-1. Analysis for 
+1.  Analysis for
+ 
 
 
