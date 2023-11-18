@@ -46,7 +46,7 @@ apply(reports, MARGIN = 1,
 
 ## Links to the pages
 
-1.  Analysis for
+1.  Analysis for (Graduate)[https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_5)
  
 
 
