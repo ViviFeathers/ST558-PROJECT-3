@@ -44,7 +44,11 @@ apply(reports, MARGIN = 1,
 
 ## Links to the pages
 
-1.  Analysis for [Graduate](https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_5)
+1.  Analysis for [Never attended school, kindergarten or elementary](https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_1)
+2.  Analysis for [Some high school](https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_2)
+3.  Analysis for [High school graduate](https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_3)
+4.  Analysis for [Some college or technical school](https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_4)
+5.  Analysis for [College graduate](https://vivifeathers.github.io/ST558-PROJECT-3/Education_Level_5)
  
 
 
